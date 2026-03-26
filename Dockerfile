@@ -1,4 +1,3 @@
-cat > Dockerfile << 'EOF'
 FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -6,7 +5,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install all system dependencies required for dlib and face_recognition
+# Install system dependencies required for dlib and face_recognition
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
@@ -49,4 +48,3 @@ USER attendance
 EXPOSE $PORT
 
 CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app
-EOF
