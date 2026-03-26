@@ -1,8 +1,4 @@
-cd attendancesystem
-
-# Create the corrected requirements.txt
-cat > requirements.txt << 'EOF'
-# Core Flask - Use older version compatible with Dash
+# Core Flask
 Flask==2.2.5
 Flask-Login==0.6.2
 Flask-SQLAlchemy==3.0.5
@@ -52,7 +48,7 @@ gevent==24.2.1
 # Notifications
 twilio==8.5.0
 
-# AWS & Cloud (optional)
+# AWS & Cloud
 boto3==1.28.17
 
 # Monitoring & Debug
@@ -74,7 +70,6 @@ XlsxWriter==3.1.2
 reportlab==4.0.4
 WeasyPrint==60.1
 
-# QR Code (optional)
+# QR Code
 qrcode==7.4.2
 pyzbar==0.1.9
-EOF
