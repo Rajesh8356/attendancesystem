@@ -1,35 +1,27 @@
 # Use Python 3.9 slim image
 FROM python:3.9-slim
 
+# Set environment variables to prevent interactive prompts
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive
+
 # Set working directory
 WORKDIR /app
 
-# ===== CHANGE 1: Add environment variable to prevent interactive prompts =====
-# Add this line right after WORKDIR
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install system dependencies
-# ===== CHANGE 2: Add DEBIAN_FRONTEND=noninteractive to apt-get =====
+# Install essential system dependencies only
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libatlas-base-dev \
-    libhdf5-dev \
     libpq-dev \
     wget \
     curl \
-    nginx \
     && rm -rf /var/lib/apt/lists/*
 
-# ===== CHANGE 3: Ensure pip install is non-interactive =====
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -45,15 +37,12 @@ RUN mkdir -p /app/instance \
     /app/logs \
     /app/templates/errors
 
-# Set environment variables
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
-# ===== CHANGE 4: Add this to maintain non-interactive mode =====
-ENV DEBIAN_FRONTEND=noninteractive
+# Set Flask environment variables
+ENV FLASK_APP=app.py \
+    FLASK_ENV=production \
+    PYTHONPATH=/app
 
-# Create non-root user
+# Create non-root user and set permissions
 RUN useradd -m -u 1000 attendance && \
     chown -R attendance:attendance /app
 
