@@ -5,39 +5,51 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies with CORRECT package names for Debian 11 (Bullseye)
+# Install system dependencies required for dlib and face_recognition
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
+    cmake \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
     libgomp1 \
-    libhdf5-dev \
     libpq-dev \
     wget \
     curl \
+    libopenblas-dev \
+    liblapack-dev \
+    libatlas-base-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements first for better caching
 COPY requirements.txt .
+
+# Install Python dependencies (this will compile dlib - takes time!)
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Copy application code
 COPY . .
 
+# Create necessary directories
 RUN mkdir -p instance static/uploads recordings logs templates/errors
 
+# Set environment variables
 ENV FLASK_APP=app.py \
     FLASK_ENV=production \
     PYTHONPATH=/app
 
+# Create non-root user
 RUN useradd -m -u 1000 attendance && chown -R attendance:attendance /app
 USER attendance
 
+# Expose port
 EXPOSE $PORT
 
+# Run the application
 CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app
