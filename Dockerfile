@@ -1,3 +1,4 @@
+cat > Dockerfile << 'EOF'
 FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -5,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies required for dlib and face_recognition
+# Install all system dependencies required for dlib and face_recognition
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
@@ -23,13 +24,10 @@ RUN apt-get update && \
     curl \
     libopenblas-dev \
     liblapack-dev \
-    libatlas-base-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy and install Python dependencies
 COPY requirements.txt .
-
-# Install Python dependencies (this will compile dlib - takes time!)
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -48,8 +46,7 @@ ENV FLASK_APP=app.py \
 RUN useradd -m -u 1000 attendance && chown -R attendance:attendance /app
 USER attendance
 
-# Expose port
 EXPOSE $PORT
 
-# Run the application
 CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app
+EOF
