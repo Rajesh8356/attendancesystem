@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies (minimal for OpenCV and face_recognition)
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
@@ -17,30 +17,29 @@ RUN apt-get update && \
     libxrender1 \
     libgomp1 \
     libpq-dev \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pre-compiled dlib wheel (no compilation needed)
-RUN pip install --no-cache-dir https://github.com/z-mahmud22/Dlib_Wheels/raw/main/dlib-19.24.2-cp39-cp39-linux_x86_64.whl
+# Try alternative dlib wheel sources
+RUN pip install --no-cache-dir https://github.com/jeffreyde/dlib-wheels/raw/main/dlib-19.24.2-cp39-cp39-linux_x86_64.whl || \
+    pip install --no-cache-dir dlib-bin || \
+    pip install --no-cache-dir dlib==19.24.2
 
-# Install face_recognition (it will find dlib already installed)
+# Install face_recognition
 RUN pip install --no-cache-dir face-recognition==1.3.0
 
-# Install the rest of the dependencies from requirements.txt
+# Install other dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Create necessary directories
 RUN mkdir -p instance static/uploads recordings logs templates/errors
 
-# Set environment variables
 ENV FLASK_APP=app.py \
     FLASK_ENV=production \
     PYTHONPATH=/app
 
-# Create non-root user
 RUN useradd -m -u 1000 attendance && chown -R attendance:attendance /app
 USER attendance
 
