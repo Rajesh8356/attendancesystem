@@ -5,19 +5,18 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies with CORRECT package names
+# Install system dependencies with CORRECT package names for Debian 11 (Bullseye)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
     libgomp1 \
-    libatlas-base-dev \
     libhdf5-dev \
     libpq-dev \
     wget \
@@ -36,7 +35,6 @@ ENV FLASK_APP=app.py \
     FLASK_ENV=production \
     PYTHONPATH=/app
 
-# Create non-root user
 RUN useradd -m -u 1000 attendance && chown -R attendance:attendance /app
 USER attendance
 
