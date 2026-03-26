@@ -4,8 +4,14 @@ FROM python:3.9-slim
 # Set working directory
 WORKDIR /app
 
+# ===== CHANGE 1: Add environment variable to prevent interactive prompts =====
+# Add this line right after WORKDIR
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+# ===== CHANGE 2: Add DEBIAN_FRONTEND=noninteractive to apt-get =====
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
@@ -23,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     nginx \
     && rm -rf /var/lib/apt/lists/*
 
+# ===== CHANGE 3: Ensure pip install is non-interactive =====
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -43,6 +50,8 @@ ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+# ===== CHANGE 4: Add this to maintain non-interactive mode =====
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Create non-root user
 RUN useradd -m -u 1000 attendance && \
