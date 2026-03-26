@@ -1,0 +1,398 @@
+<!-- templates/student/notifications.html -->
+{% extends "base_student.html" %}
+
+{% block title %}My Notifications{% endblock %}
+
+{% block page_title %}Notifications{% endblock %}
+{% block page_subtitle %}Stay updated with important announcements{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notifications-container {
+        padding: 20px 0;
+    }
+    
+    .notification-item {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid var(--border-color);
+        transition: all 0.3s;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .notification-item:hover {
+        transform: translateX(5px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .notification-item.pinned {
+        border-left: 4px solid #ffd166;
+        background: linear-gradient(90deg, rgba(255, 209, 102, 0.05), var(--bg-card));
+    }
+    
+    .notification-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .notification-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+    }
+    
+    .notification-time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    
+    .notification-message {
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 10px;
+    }
+    
+    .notification-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .pinned-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(255, 209, 102, 0.2);
+        color: #ffd166;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .notification-badge {
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notifications-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-1">My Notifications</h3>
+            <p class="text-muted">Important announcements from your institute</p>
+        </div>
+        <button class="btn btn-outline-primary" id="markAllReadBtn">
+            <i class="fas fa-check-double"></i> Mark All as Read
+        </button>
+    </div>
+    
+    <div id="notificationsList">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Loading notifications...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+let socket = null;
+let notifications = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSocket();
+    loadNotifications();
+    
+    document.getElementById('markAllReadBtn').addEventListener('click', markAllAsRead);
+    
+    // Update notification count in header
+    updateNotificationCount();
+});
+
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('new_announcement', function(data) {
+        console.log('New announcement received:', data);
+        addNotificationToList(data);
+        updateNotificationCount();
+        showToast('New announcement: ' + data.title, 'info');
+    });
+}
+
+async function loadNotifications() {
+    try {
+        const response = await fetch('/api/student/notifications');
+        const data = await response.json();
+        
+        if (data.success) {
+            notifications = data.notifications;
+            renderNotifications(data.notifications);
+        }
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+        document.getElementById('notificationsList').innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-circle"></i>
+                <h5>Error Loading Notifications</h5>
+                <p class="text-muted">Please try again later</p>
+                <button class="btn btn-primary mt-3" onclick="loadNotifications()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+function renderNotifications(notifications) {
+    const container = document.getElementById('notificationsList');
+    
+    if (!notifications || notifications.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-bell-slash"></i>
+                <h5>No Notifications</h5>
+                <p class="text-muted">You're all caught up! Check back later for announcements.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = notifications.map(notification => `
+        <div class="notification-item ${notification.is_pinned ? 'pinned' : ''}" data-id="${notification.id}">
+            <div class="notification-header">
+                <div>
+                    <span class="notification-title">
+                        ${!notification.read ? '<span class="notification-badge"></span>' : ''}
+                        ${escapeHtml(notification.title)}
+                    </span>
+                    ${notification.is_pinned ? '<span class="pinned-badge ms-2"><i class="fas fa-thumbtack"></i> Pinned</span>' : ''}
+                </div>
+                <div class="notification-time">
+                    <i class="far fa-clock"></i> ${formatDate(notification.created_at)}
+                </div>
+            </div>
+            <div class="notification-message">
+                ${escapeHtml(notification.content)}
+            </div>
+            <div class="notification-meta">
+                <div class="d-flex gap-3">
+                    <small class="text-muted">
+                        <i class="fas fa-user"></i> By: ${escapeHtml(notification.created_by)}
+                    </small>
+                </div>
+                ${!notification.read ? `
+                    <button class="btn btn-sm btn-outline-primary" onclick="markAsRead(${notification.id})">
+                        <i class="fas fa-check"></i> Mark as Read
+                    </button>
+                ` : '<span class="text-muted small"><i class="fas fa-check-circle"></i> Read</span>'}
+            </div>
+        </div>
+    `).join('');
+}
+
+function addNotificationToList(notification) {
+    const container = document.getElementById('notificationsList');
+    
+    if (container.innerHTML.includes('No notifications')) {
+        container.innerHTML = '';
+    }
+    
+    const notificationHtml = `
+        <div class="notification-item ${notification.is_pinned ? 'pinned' : ''}" data-id="${notification.id}">
+            <div class="notification-header">
+                <div>
+                    <span class="notification-title">
+                        <span class="notification-badge"></span>
+                        ${escapeHtml(notification.title)}
+                    </span>
+                    ${notification.is_pinned ? '<span class="pinned-badge ms-2"><i class="fas fa-thumbtack"></i> Pinned</span>' : ''}
+                </div>
+                <div class="notification-time">
+                    <i class="far fa-clock"></i> Just now
+                </div>
+            </div>
+            <div class="notification-message">
+                ${escapeHtml(notification.content)}
+            </div>
+            <div class="notification-meta">
+                <small class="text-muted">
+                    <i class="fas fa-user"></i> By: ${escapeHtml(notification.created_by)}
+                </small>
+                <button class="btn btn-sm btn-outline-primary" onclick="markAsRead(${notification.id})">
+                    <i class="fas fa-check"></i> Mark as Read
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('afterbegin', notificationHtml);
+    updateNotificationCount();
+}
+
+async function markAsRead(notificationId) {
+    try {
+        const response = await fetch(`/api/student/notification/${notificationId}/read`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const notificationItem = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+            if (notificationItem) {
+                const badge = notificationItem.querySelector('.notification-badge');
+                if (badge) badge.remove();
+                
+                const button = notificationItem.querySelector('.btn-outline-primary');
+                if (button) {
+                    button.outerHTML = '<span class="text-muted small"><i class="fas fa-check-circle"></i> Read</span>';
+                }
+            }
+            updateNotificationCount();
+        }
+    } catch (error) {
+        console.error('Error marking as read:', error);
+    }
+}
+
+async function markAllAsRead() {
+    try {
+        const response = await fetch('/api/student/notifications/mark-all-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadNotifications();
+            updateNotificationCount();
+            showToast('All notifications marked as read', 'success');
+        }
+    } catch (error) {
+        console.error('Error marking all as read:', error);
+    }
+}
+
+async function updateNotificationCount() {
+    try {
+        const response = await fetch('/api/student/notifications/unread-count');
+        const data = await response.json();
+        
+        const countElement = document.getElementById('notificationCount');
+        if (countElement) {
+            countElement.textContent = data.count || 0;
+        }
+    } catch (error) {
+        console.error('Error updating notification count:', error);
+    }
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} minutes ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+    
+    return date.toLocaleDateString();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type === 'error' ? 'error' : ''}`;
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i> ${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+
+<style>
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    border-left: 4px solid var(--success);
+}
+
+.toast-notification.error {
+    border-left-color: var(--danger);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+</style>
+{% endblock %}

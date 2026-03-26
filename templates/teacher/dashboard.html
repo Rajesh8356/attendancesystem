@@ -1,0 +1,229 @@
+{% extends "base_teacher.html" %}
+
+{% block title %}Teacher Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-chalkboard-user me-2"></i>Welcome, {{ teacher.user.full_name }}!</h2>
+            <p class="text-muted">Manage your classes, sessions, and student attendance</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-book"></i></div>
+                <div class="stat-value">{{ teacher.teacher_assignments.count() }}</div>
+                <div class="stat-label">Subjects Teaching</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div class="stat-value">{{ total_students }}</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+                <div class="stat-value">{{ today_sessions }}</div>
+                <div class="stat-label">Today's Sessions</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                <div class="stat-value">{{ avg_attendance }}%</div>
+                <div class="stat-label">Avg Attendance</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="quick-actions">
+                        <a href="{{ url_for('teacher_create_session') }}" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i> Create Session
+                        </a>
+                        <a href="{{ url_for('teacher_take_attendance') }}" class="btn btn-success">
+                            <i class="fas fa-camera"></i> Take Attendance
+                        </a>
+                        <a href="{{ url_for('teacher_notifications') }}" class="btn btn-info">
+                            <i class="fas fa-bell"></i> Send Notification
+                        </a>
+                        <a href="{{ url_for('teacher_reports') }}" class="btn btn-warning">
+                            <i class="fas fa-file-alt"></i> Generate Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Sessions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-day me-2"></i>Today's Sessions</h5>
+                </div>
+                <div class="card-body">
+                    {% if today_sessions_list %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Subject</th>
+                                        <th>Class</th>
+                                        <th>Status</th>
+                                        <th>Attendance</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for session in today_sessions_list %}
+                                    <tr>
+                                        <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}</td>
+                                        <td>{{ session.subject.name }}</td>
+                                        <td>{{ session.assigned_class.name }}</td>
+                                        <td>
+                                            {% if session.is_active_at_time(now) %}
+                                                <span class="badge bg-success">Active Now</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Upcoming</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% set attendance_count = session.session_attendance_records.filter_by(status='present').count() %}
+                                            {% set total_students = session.assigned_class.enrolled_students.filter_by(is_active=True).count() %}
+                                            {% if total_students > 0 %}
+                                                {{ ((attendance_count / total_students) * 100)|round(1) }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x mb-3 text-muted"></i>
+                            <p>No sessions scheduled for today</p>
+                            <a href="{{ url_for('teacher_create_session') }}" class="btn btn-primary">
+                                <i class="fas fa-plus-circle"></i> Create Session
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Notifications -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-bell me-2"></i>Recent Notifications</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_notifications %}
+                        <div class="list-group">
+                            {% for notif in recent_notifications %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ notif.title }}</h6>
+                                        <p class="mb-1 small">{{ notif.content|truncate(100) }}</p>
+                                        <small class="text-muted">
+                                            <i class="far fa-clock"></i> {{ notif.created_at.strftime('%d %b %Y, %H:%M') }}
+                                            {% if notif.subject %}
+                                                | <i class="fas fa-book"></i> {{ notif.subject.name }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    <span class="badge bg-info">{{ notif.target_all|length }} recipients</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-bell-slash fa-3x mb-3 text-muted"></i>
+                            <p>No notifications sent yet</p>
+                            <a href="{{ url_for('teacher_notifications') }}" class="btn btn-info">
+                                <i class="fas fa-paper-plane"></i> Send First Notification
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        transition: all 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        color: var(--primary);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+    }
+    
+    .quick-actions {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .quick-actions .btn {
+        padding: 10px 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+{% endblock %}

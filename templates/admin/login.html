@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Attendance Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* Animated Background with Admin Icons */
+        .bg-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+        
+        /* Floating Admin Cards */
+        .admin-card-bg {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            animation: floatCard 20s infinite ease-in-out;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        
+        @keyframes floatCard {
+            0%, 100% { 
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+            25% { 
+                transform: translateY(-20px) rotate(2deg) scale(1.02);
+            }
+            75% { 
+                transform: translateY(15px) rotate(-2deg) scale(0.98);
+            }
+        }
+        
+        .admin-card-bg i {
+            font-size: 48px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 12px;
+        }
+        
+        .admin-card-bg span {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .admin-card-bg .small-text {
+            font-size: 10px;
+            margin-top: 5px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Floating Shapes */
+        .floating-shape {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            animation: floatShape 15s infinite ease-in-out;
+        }
+        
+        @keyframes floatShape {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(30px, -20px) rotate(180deg); }
+        }
+        
+        /* Login Container */
+        .login-container {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-card {
+            max-width: 480px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: slideUp 0.6s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Header Section */
+        .login-header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 45px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1%, transparent 1%);
+            background-size: 40px 40px;
+            animation: shimmer 30s linear infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        
+        .admin-icon {
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 45px;
+            color: white;
+            animation: pulse 2s infinite;
+            backdrop-filter: blur(5px);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+        }
+        
+        .login-header h1 {
+            color: white;
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        
+        .login-header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        /* Stats Badge */
+        .stats-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 15px;
+            border-radius: 30px;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        
+        /* Form Section */
+        .login-body {
+            padding: 40px 35px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .form-group i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #1e293b;
+            font-size: 18px;
+            transition: all 0.3s;
+            z-index: 1;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #1e293b;
+            box-shadow: 0 0 0 4px rgba(30, 41, 59, 0.1);
+        }
+        
+        .form-control:focus + i {
+            color: #0f172a;
+            transform: translateY(-50%) scale(1.05);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        
+        .checkbox-label input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #1e293b;
+        }
+        
+        .forgot-link {
+            color: #1e293b;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .forgot-link:hover {
+            color: #0f172a;
+            text-decoration: underline;
+        }
+        
+        .btn-login {
+            width: 100%;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-login:hover::before {
+            left: 100%;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(30, 41, 59, 0.4);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        /* Info Cards */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .info-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.08), rgba(15, 23, 42, 0.08));
+            border-radius: 14px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .info-card:hover {
+            transform: translateY(-3px);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.15), rgba(15, 23, 42, 0.15));
+        }
+        
+        .info-card i {
+            font-size: 28px;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        
+        .info-card h4 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #2d3748;
+        }
+        
+        .info-card p {
+            font-size: 11px;
+            color: #718096;
+            margin: 0;
+        }
+        
+        /* Info Box */
+        .info-box {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.08), rgba(15, 23, 42, 0.08));
+            border-radius: 14px;
+            padding: 18px;
+            margin: 20px 0;
+            border-left: 4px solid #1e293b;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            font-size: 13px;
+            color: #4a5568;
+        }
+        
+        .info-box i {
+            color: #1e293b;
+            margin-right: 8px;
+        }
+        
+        .info-box strong {
+            color: #1e293b;
+        }
+        
+        /* Footer */
+        .login-footer {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .login-footer a {
+            color: #1e293b;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .login-footer a:hover {
+            color: #0f172a;
+        }
+        
+        .student-login-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white !important;
+            padding: 12px 20px;
+            border-radius: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        
+        .student-login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+            color: white !important;
+        }
+        
+        /* Alert Messages */
+        .alert {
+            padding: 14px 18px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        /* Features List */
+        .features-list {
+            margin-top: 20px;
+            padding: 0;
+            list-style: none;
+        }
+        
+        .features-list li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #4a5568;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .features-list li i {
+            color: #1e293b;
+            width: 20px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .login-body {
+                padding: 30px 25px;
+            }
+            
+            .login-header {
+                padding: 35px 25px;
+            }
+            
+            .admin-icon {
+                width: 70px;
+                height: 70px;
+                font-size: 35px;
+            }
+            
+            .login-header h1 {
+                font-size: 26px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background Elements -->
+    <div class="bg-elements" id="bgElements"></div>
+    
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="admin-icon">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h1>Admin Portal</h1>
+                <p>Manage your institution with ease</p>
+                <div class="stats-badge">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Complete Control & Analytics</span>
+                </div>
+            </div>
+            
+            <div class="login-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}" role="alert">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST" action="{{ url_for('admin_login') }}">
+                    <div class="form-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" class="form-control" name="username" placeholder="Username" required autofocus>
+                    </div>
+                    
+                    <div class="form-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" class="form-control" name="password" placeholder="Password" required>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remember">
+                            <span>Keep me signed in</span>
+                        </label>
+                        <a href="#" class="forgot-link" onclick="showHelp()">
+                            <i class="fas fa-question-circle"></i> Need help?
+                        </a>
+                    </div>
+                    
+                    <button type="submit" class="btn-login">
+                        <i class="fas fa-arrow-right-to-bracket me-2"></i> Access Dashboard
+                    </button>
+                </form>
+                
+                <div class="info-grid">
+                    <div class="info-card">
+                        <i class="fas fa-users"></i>
+                        <h4>Student Management</h4>
+                        <p>Register & manage students</p>
+                    </div>
+                    <div class="info-card">
+                        <i class="fas fa-chart-line"></i>
+                        <h4>Advanced Analytics</h4>
+                        <p>Real-time insights</p>
+                    </div>
+                    <div class="info-card">
+                        <i class="fas fa-camera"></i>
+                        <h4>Face Recognition</h4>
+                        <p>AI-powered attendance</p>
+                    </div>
+                    <div class="info-card">
+                        <i class="fas fa-file-alt"></i>
+                        <h4>Reports & Export</h4>
+                        <p>PDF, Excel, CSV formats</p>
+                    </div>
+                </div>
+                
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>🔐 Admin Access Information:</strong></p>
+                    <p>✓ Login with your administrator credentials</p>
+                    <p>✓ Default credentials: <strong>admin / Admin@123</strong></p>
+                    <p>✓ Change password after first login for security</p>
+                </div>
+                
+                {# <ul class="features-list">
+                    <li><i class="fas fa-check-circle"></i> Complete student database management</li>
+                    <li><i class="fas fa-chart-pie"></i> Real-time attendance tracking with AI</li>
+                    <li><i class="fas fa-video"></i> Live camera monitoring with line detection</li>
+                    <li><i class="fas fa-download"></i> Export reports in multiple formats</li>
+                    <li><i class="fas fa-bell"></i> Automated notifications & alerts</li>
+                    <li><i class="fas fa-shield-alt"></i> Advanced security & liveness detection</li>
+                </ul> #}
+                
+                <div class="login-footer">
+                    <a href="{{ url_for('student_login') }}" class="student-login-btn">
+                        <i class="fas fa-graduation-cap"></i> Student Portal Login
+                    </a>
+                    <p style="font-size: 11px; color: #a0aec0; margin-top: 15px;">
+                        <i class="fas fa-envelope me-1"></i> For support, contact system administrator
+                    </p>
+                    <p style="font-size: 10px; color: #cbd5e0; margin-top: 8px;">
+                        © 2024 Face Attendance System | Secured with Advanced Face Recognition
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Create animated background elements with admin-themed icons
+        function createBackgroundElements() {
+            const container = document.getElementById('bgElements');
+            const icons = [
+                'fa-user-shield', 'fa-chart-line', 'fa-users', 'fa-camera', 
+                'fa-database', 'fa-chart-bar', 'fa-file-alt', 'fa-bell',
+                'fa-shield-alt', 'fa-laptop-code', 'fa-chart-pie', 'fa-cog',
+                'fa-clock', 'fa-calendar-check', 'fa-chalkboard-user', 'fa-building'
+            ];
+            const texts = ['Admin', 'Control', 'Analytics', 'Security', 'Monitor', 'Manage', 'Reports', 'System'];
+            
+            // Create floating admin cards
+            for (let i = 0; i < 25; i++) {
+                const element = document.createElement('div');
+                element.className = 'admin-card-bg';
+                
+                const randomIcon = icons[Math.floor(Math.random() * icons.length)];
+                const randomText = texts[Math.floor(Math.random() * texts.length)];
+                const size = 90 + Math.random() * 120;
+                const left = Math.random() * 100;
+                const top = Math.random() * 100;
+                const duration = 18 + Math.random() * 25;
+                const delay = Math.random() * 15;
+                const opacity = 0.15 + Math.random() * 0.25;
+                
+                element.style.width = size + 'px';
+                element.style.height = (size * 1.3) + 'px';
+                element.style.left = left + '%';
+                element.style.top = top + '%';
+                element.style.animationDuration = duration + 's';
+                element.style.animationDelay = delay + 's';
+                element.style.opacity = opacity;
+                element.innerHTML = `
+                    <i class="fas ${randomIcon}"></i>
+                    <span>${randomText}</span>
+                    <div class="small-text">Admin Portal</div>
+                `;
+                
+                container.appendChild(element);
+            }
+            
+            // Create floating shapes
+            for (let i = 0; i < 35; i++) {
+                const shape = document.createElement('div');
+                shape.className = 'floating-shape';
+                const size = 20 + Math.random() * 80;
+                const left = Math.random() * 100;
+                const top = Math.random() * 100;
+                const duration = 12 + Math.random() * 20;
+                const delay = Math.random() * 10;
+                
+                shape.style.width = size + 'px';
+                shape.style.height = size + 'px';
+                shape.style.left = left + '%';
+                shape.style.top = top + '%';
+                shape.style.animationDuration = duration + 's';
+                shape.style.animationDelay = delay + 's';
+                shape.style.background = `rgba(255, 255, 255, ${0.03 + Math.random() * 0.08})`;
+                
+                container.appendChild(shape);
+            }
+        }
+        
+        function showHelp() {
+            const helpMessage = "🔐 Admin Portal Help Center\n\n" +
+                "🔑 LOGIN INFORMATION:\n" +
+                "• Username: Your admin username\n" +
+                "• Password: Your secure password\n" +
+                "• Default: admin / Admin@123\n\n" +
+                "📊 ADMIN CAPABILITIES:\n" +
+                "• Register and manage students\n" +
+                "• Configure attendance sessions\n" +
+                "• Monitor live camera feeds\n" +
+                "• Generate detailed reports\n" +
+                "• Manage system settings\n\n" +
+                "💡 SECURITY TIPS:\n" +
+                "• Change default password immediately\n" +
+                "• Use strong, unique passwords\n" +
+                "• Enable 2FA if available\n\n" +
+                "🆘 Need Assistance?\n" +
+                "Contact: support@attendance-system.com";
+            
+            alert(helpMessage);
+        }
+        
+        // Create background on load
+        createBackgroundElements();
+        
+        // Add animation to form inputs
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'translateY(-2px)';
+            });
+            
+            input.addEventListener('blur', function() {
+                if (!this.value) {
+                    this.parentElement.style.transform = 'translateY(0)';
+                }
+            });
+        });
+        
+        // Add loading effect on form submit
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                const btn = this.querySelector('.btn-login');
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Logging in...';
+                    btn.disabled = true;
+                }
+            });
+        }
+        
+        // Add floating animation to cards on scroll/mouse move
+        document.addEventListener('mousemove', function(e) {
+            const cards = document.querySelectorAll('.admin-card-bg');
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            
+            cards.forEach((card, index) => {
+                const speed = 20 + index * 2;
+                const x = (mouseX - 0.5) * speed;
+                const y = (mouseY - 0.5) * speed;
+                card.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        });
+    </script>
+</body>
+</html>

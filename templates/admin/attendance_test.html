@@ -1,0 +1,751 @@
+{% extends "base.html" %}
+
+{% block page_title %}Attendance Test Lab{% endblock %}
+{% block page_subtitle %}Manually test and verify attendance recording functionality{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header with Stats -->
+    <div class="dashboard-welcome">
+        <div class="welcome-card" style="background: linear-gradient(135deg, #7209b7, #4361ee);">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="welcome-title"><i class="fas fa-flask me-2"></i>Attendance Test Laboratory</h2>
+                    <p class="welcome-subtitle">Manually trigger attendance events to verify system functionality</p>
+                </div>
+                <div class="live-indicator">
+                    <span class="pulse-dot"></span>
+                    <span class="live-text">TEST MODE</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Controls Grid -->
+    <div class="row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px;">
+        <!-- Left Column - Manual Test -->
+        <div class="card">
+            <div class="card-header" style="background: linear-gradient(135deg, #4361ee, #7209b7);">
+                <h5 class="text-white mb-0"><i class="fas fa-hand-pointer me-2"></i>Manual Test</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-4">
+                    <label class="form-label">Select Student</label>
+                    <select class="form-control" id="testStudentId" style="font-size: 1rem; padding: 12px;">
+                        <option value="">-- Choose a student --</option>
+                        {% for student in students %}
+                        <option value="{{ student.id }}" data-name="{{ student.user.full_name }}">
+                            {{ student.user.full_name }} ({{ student.admission_number }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group mb-4">
+                    <label class="form-label">Select Camera (Optional)</label>
+                    <select class="form-control" id="testCameraId">
+                        <option value="">-- Simulated Camera --</option>
+                        {% for camera in cameras %}
+                        <option value="{{ camera.id }}">{{ camera.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="d-flex gap-3">
+                    <button class="btn btn-success btn-lg flex-grow-1" onclick="testAttendance('in')" id="testInBtn">
+                        <i class="fas fa-sign-in-alt me-2"></i>Test Check-In
+                    </button>
+                    <button class="btn btn-warning btn-lg flex-grow-1" onclick="testAttendance('out')" id="testOutBtn">
+                        <i class="fas fa-sign-out-alt me-2"></i>Test Check-Out
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Quick Test & Stats -->
+        <div class="card">
+            <div class="card-header" style="background: linear-gradient(135deg, #06d6a0, #059669);">
+                <h5 class="text-white mb-0"><i class="fas fa-bolt me-2"></i>Quick Test</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-6">
+                        <button class="btn btn-outline-success btn-block py-3" onclick="quickTest('in')">
+                            <i class="fas fa-random me-2"></i>Random Check-In
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-warning btn-block py-3" onclick="quickTest('out')">
+                            <i class="fas fa-random me-2"></i>Random Check-Out
+                        </button>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-block py-3" onclick="bulkTest()">
+                    <i class="fas fa-users me-2"></i>Test Bulk (10 Students)
+                </button>
+                
+                <hr class="my-4">
+                
+                <!-- Auto Test Toggle -->
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-1">Continuous Auto Test</h6>
+                        <small class="text-muted">Automatically generate random attendance every few seconds</small>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="autoTestToggle" onchange="toggleAutoTest()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <div class="mt-3" id="autoTestControls" style="display: none;">
+                    <label class="form-label">Interval (seconds)</label>
+                    <div class="d-flex gap-2">
+                        <input type="number" class="form-control" id="testInterval" value="5" min="1" max="30">
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateAutoTestInterval()">Set</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-bar me-2"></i>Test Session Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="stat-circle" id="testCount">0</div>
+                            <div class="stat-label">Tests Run</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-circle" style="border-color: #06d6a0;" id="testSuccess">0</div>
+                            <div class="stat-label">Successful</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-circle" style="border-color: #ef476f;" id="testFailed">0</div>
+                            <div class="stat-label">Failed</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-circle" style="border-color: #ffd166;" id="successRate">0%</div>
+                            <div class="stat-label">Success Rate</div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <button class="btn btn-outline-danger" onclick="resetStats()">
+                            <i class="fas fa-redo-alt me-2"></i>Reset Statistics
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Results -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-history me-2"></i>Test Results Log</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportLog()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="test-results-container" id="testResults" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-flask fa-3x mb-3"></i>
+                            <p>No tests run yet. Click test buttons to begin.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Result Modal -->
+<div class="modal" id="testResultModal">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 id="modalTitle">Test Result</h3>
+            <button class="modal-close" onclick="hideModal()">&times;</button>
+        </div>
+        <div class="modal-body text-center" id="modalBody">
+            <i class="fas fa-check-circle fa-4x mb-3" style="color: var(--success);" id="modalIcon"></i>
+            <h4 id="modalMessage">Success</h4>
+            <p id="modalDetail">Attendance recorded successfully</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="hideModal()">OK</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 4px solid var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 auto 15px;
+    transition: all 0.3s;
+}
+
+.stat-circle:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-lg);
+}
+
+.test-results-container {
+    background: var(--bg-primary);
+    border-radius: var(--border-radius);
+    padding: 15px;
+}
+
+.result-item {
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-card);
+    border-left: 4px solid transparent;
+    box-shadow: var(--shadow-sm);
+    animation: slideIn 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.result-item.success {
+    border-left-color: var(--success);
+    background: linear-gradient(to right, rgba(6, 214, 160, 0.05), var(--bg-card));
+}
+
+.result-item.error {
+    border-left-color: var(--danger);
+    background: linear-gradient(to right, rgba(239, 71, 111, 0.05), var(--bg-card));
+}
+
+.result-time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.result-student {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.result-details {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9rem;
+}
+
+.badge-test {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.badge-test.in {
+    background: rgba(6, 214, 160, 0.2);
+    color: var(--success);
+}
+
+.badge-test.out {
+    background: rgba(255, 209, 102, 0.2);
+    color: var(--warning);
+}
+
+.confidence-bar {
+    width: 60px;
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+    display: inline-block;
+    margin-left: 10px;
+}
+
+.confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--primary));
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-color);
+    transition: .3s;
+    border-radius: 30px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--success);
+}
+
+input:checked + .slider:before {
+    transform: translateX(30px);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.pulse-dot {
+    width: 12px;
+    height: 12px;
+    background: #4ade80;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+    display: inline-block;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 16px;
+    border-radius: 30px;
+}
+
+.live-text {
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+</style>
+
+<script>
+// ==================== Test Variables ====================
+let testCount = 0;
+let testSuccess = 0;
+let testFailed = 0;
+let autoTestInterval = null;
+let students = [];
+let cameras = [];
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadStudents();
+    loadCameras();
+    loadStats();
+});
+
+function loadStudents() {
+    fetch('/api/students/list')
+        .then(response => response.json())
+        .then(data => {
+            students = data.students;
+            const selector = document.getElementById('testStudentId');
+            
+            data.students.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = `${student.name} (${student.admission_number})`;
+                selector.appendChild(option);
+            });
+        });
+}
+
+function loadCameras() {
+    fetch('/api/cameras/list')
+        .then(response => response.json())
+        .then(data => {
+            cameras = data.cameras || [];
+        });
+}
+
+function loadStats() {
+    // Load from session storage if available
+    const savedStats = sessionStorage.getItem('testStats');
+    if (savedStats) {
+        const stats = JSON.parse(savedStats);
+        testCount = stats.count || 0;
+        testSuccess = stats.success || 0;
+        testFailed = stats.failed || 0;
+        updateStatsDisplay();
+    }
+}
+
+function saveStats() {
+    sessionStorage.setItem('testStats', JSON.stringify({
+        count: testCount,
+        success: testSuccess,
+        failed: testFailed
+    }));
+}
+
+function updateStatsDisplay() {
+    document.getElementById('testCount').textContent = testCount;
+    document.getElementById('testSuccess').textContent = testSuccess;
+    document.getElementById('testFailed').textContent = testFailed;
+    
+    const rate = testCount > 0 ? Math.round((testSuccess / testCount) * 100) : 0;
+    document.getElementById('successRate').textContent = rate + '%';
+    
+    saveStats();
+}
+
+// ==================== Test Functions ====================
+
+function testAttendance(status) {
+    const studentId = document.getElementById('testStudentId').value;
+    
+    if (!studentId) {
+        alert('Please select a student first');
+        return;
+    }
+    
+    const cameraId = document.getElementById('testCameraId').value;
+    performTest(studentId, status, 'manual', cameraId);
+}
+
+function quickTest(status) {
+    if (students.length === 0) {
+        alert('No students available');
+        return;
+    }
+    
+    const randomStudent = students[Math.floor(Math.random() * students.length)];
+    performTest(randomStudent.id, status, 'quick');
+}
+
+function bulkTest() {
+    if (students.length === 0) {
+        alert('No students available');
+        return;
+    }
+    
+    const testStudents = students.slice(0, Math.min(10, students.length));
+    
+    testStudents.forEach((student, index) => {
+        setTimeout(() => {
+            const status = Math.random() > 0.5 ? 'in' : 'out';
+            performTest(student.id, status, 'bulk');
+        }, index * 300);
+    });
+    
+    showNotification(`Starting bulk test for ${testStudents.length} students`, 'info');
+}
+
+function performTest(studentId, status, testType, cameraId = '') {
+    testCount++;
+    
+    const now = new Date();
+    const confidence = (Math.random() * (99 - 85) + 85).toFixed(1);
+    
+    const testData = {
+        student_id: studentId,
+        status: status,
+        confidence: confidence,
+        test_type: testType,
+        camera_id: cameraId || 'test_camera'
+    };
+    
+    // Disable buttons during test
+    document.getElementById('testInBtn').disabled = true;
+    document.getElementById('testOutBtn').disabled = true;
+    
+    fetch('/api/test/attendance', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            testSuccess++;
+            addTestResult(testData, true, data.student_name);
+            showTestResultModal('success', 'Attendance Recorded', 
+                `${data.student_name} checked ${status} with ${confidence}% confidence`);
+        } else {
+            testFailed++;
+            addTestResult(testData, false);
+            showTestResultModal('error', 'Test Failed', data.error || 'Could not record attendance');
+        }
+        
+        updateStatsDisplay();
+    })
+    .catch(error => {
+        console.error('Test error:', error);
+        testFailed++;
+        addTestResult(testData, false);
+        showTestResultModal('error', 'Error', error.message);
+        updateStatsDisplay();
+    })
+    .finally(() => {
+        // Re-enable buttons
+        document.getElementById('testInBtn').disabled = false;
+        document.getElementById('testOutBtn').disabled = false;
+    });
+}
+
+function addTestResult(testData, success, studentName = null) {
+    const resultsDiv = document.getElementById('testResults');
+    const resultItem = document.createElement('div');
+    resultItem.className = `result-item ${success ? 'success' : 'error'}`;
+    
+    // Get student name
+    const student = students.find(s => s.id == testData.student_id);
+    const displayName = studentName || (student ? student.name : 'Unknown');
+    
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    
+    // Calculate confidence percentage for visual bar
+    const confidencePercent = parseFloat(testData.confidence);
+    
+    resultItem.innerHTML = `
+        <div>
+            <div class="result-time">${timeString}</div>
+            <div class="result-student">${displayName}</div>
+            <div class="result-details">
+                <span class="badge-test ${testData.status}">${testData.status.toUpperCase()}</span>
+                <span>${testData.confidence}%</span>
+                <span class="confidence-bar">
+                    <span class="confidence-fill" style="width: ${confidencePercent}%"></span>
+                </span>
+                <span class="text-muted">${testData.test_type}</span>
+            </div>
+        </div>
+        <div>
+            <span class="badge ${success ? 'badge-success' : 'badge-danger'}">
+                ${success ? '✓' : '✗'}
+            </span>
+        </div>
+    `;
+    
+    // Remove placeholder if exists
+    const placeholder = resultsDiv.querySelector('.text-center');
+    if (placeholder && resultsDiv.children.length === 1) {
+        resultsDiv.innerHTML = '';
+    }
+    
+    resultsDiv.insertBefore(resultItem, resultsDiv.firstChild);
+    
+    // Keep only last 50 results
+    while (resultsDiv.children.length > 50) {
+        resultsDiv.removeChild(resultsDiv.lastChild);
+    }
+}
+
+// ==================== Auto Test Functions ====================
+
+function toggleAutoTest() {
+    const toggle = document.getElementById('autoTestToggle');
+    const controls = document.getElementById('autoTestControls');
+    const interval = document.getElementById('testInterval').value * 1000;
+    
+    if (toggle.checked) {
+        controls.style.display = 'block';
+        
+        if (students.length === 0) {
+            alert('No students available for auto test');
+            toggle.checked = false;
+            return;
+        }
+        
+        autoTestInterval = setInterval(() => {
+            const randomStudent = students[Math.floor(Math.random() * students.length)];
+            const randomStatus = Math.random() > 0.5 ? 'in' : 'out';
+            performTest(randomStudent.id, randomStatus, 'auto');
+        }, interval);
+        
+        showNotification('Auto test started', 'success');
+    } else {
+        controls.style.display = 'none';
+        if (autoTestInterval) {
+            clearInterval(autoTestInterval);
+            autoTestInterval = null;
+            showNotification('Auto test stopped', 'info');
+        }
+    }
+}
+
+function updateAutoTestInterval() {
+    if (autoTestInterval) {
+        clearInterval(autoTestInterval);
+        const interval = document.getElementById('testInterval').value * 1000;
+        
+        autoTestInterval = setInterval(() => {
+            const randomStudent = students[Math.floor(Math.random() * students.length)];
+            const randomStatus = Math.random() > 0.5 ? 'in' : 'out';
+            performTest(randomStudent.id, randomStatus, 'auto');
+        }, interval);
+        
+        showNotification(`Auto test interval updated to ${document.getElementById('testInterval').value}s`, 'info');
+    }
+}
+
+// ==================== Utility Functions ====================
+
+function resetStats() {
+    if (confirm('Reset all test statistics?')) {
+        testCount = 0;
+        testSuccess = 0;
+        testFailed = 0;
+        updateStatsDisplay();
+        sessionStorage.removeItem('testStats');
+        showNotification('Statistics reset', 'info');
+    }
+}
+
+function clearLog() {
+    if (confirm('Clear test results log?')) {
+        document.getElementById('testResults').innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-flask fa-3x mb-3"></i>
+                <p>No tests run yet. Click test buttons to begin.</p>
+            </div>
+        `;
+        showNotification('Log cleared', 'info');
+    }
+}
+
+function exportLog() {
+    const results = [];
+    const items = document.querySelectorAll('.result-item');
+    
+    items.forEach(item => {
+        const time = item.querySelector('.result-time').textContent;
+        const student = item.querySelector('.result-student').textContent;
+        const status = item.querySelector('.badge-test')?.textContent || 'UNKNOWN';
+        const confidence = item.querySelector('.result-details span:nth-child(2)').textContent;
+        
+        results.push({
+            timestamp: time,
+            student: student,
+            status: status,
+            confidence: confidence,
+            success: item.classList.contains('success')
+        });
+    });
+    
+    const dataStr = JSON.stringify(results, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `test-log-${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    showNotification('Log exported', 'success');
+}
+
+function showTestResultModal(type, title, message) {
+    const modal = document.getElementById('testResultModal');
+    const icon = document.getElementById('modalIcon');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    const modalDetail = document.getElementById('modalDetail');
+    
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    modalDetail.textContent = message;
+    
+    if (type === 'success') {
+        icon.className = 'fas fa-check-circle fa-4x mb-3';
+        icon.style.color = 'var(--success)';
+    } else {
+        icon.className = 'fas fa-times-circle fa-4x mb-3';
+        icon.style.color = 'var(--danger)';
+    }
+    
+    modal.classList.add('active');
+}
+
+function hideModal() {
+    document.getElementById('testResultModal').classList.remove('active');
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `toast-notification toast-${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    if (autoTestInterval) {
+        clearInterval(autoTestInterval);
+    }
+});
+</script>
+{% endblock %}

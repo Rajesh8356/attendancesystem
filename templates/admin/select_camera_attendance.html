@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block page_title %}Take Attendance{% endblock %}
+{% block page_subtitle %}Select cameras for check-in and check-out{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Active Session Info -->
+    {% if active_session %}
+    <div class="alert alert-info mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-clock me-2"></i>
+                <strong>Active Session:</strong> {{ active_session.name }}
+                ({{ active_session.start_date.strftime('%d %b') }} - {{ active_session.end_date.strftime('%d %b') }})
+            </div>
+            <span class="badge bg-success">Active</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Camera Selection -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Check-in Camera</h5>
+                </div>
+                <div class="card-body">
+                    <select class="form-control mb-3" id="checkinCamera">
+                        <option value="">-- Select Check-in Camera --</option>
+                        <option value="laptop">💻 Laptop Camera</option>
+                        {% for camera in cameras %}
+                        <option value="{{ camera.id }}">📹 {{ camera.name }} ({{ camera.ip }})</option>
+                        {% endfor %}
+                    </select>
+                    
+                    <div id="checkinPreview" class="camera-preview" style="display: none;">
+                        <img id="checkinFeed" src="" alt="Check-in Feed" style="width: 100%; border-radius: 8px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-sign-out-alt me-2"></i>Check-out Camera</h5>
+                </div>
+                <div class="card-body">
+                    <select class="form-control mb-3" id="checkoutCamera">
+                        <option value="">-- Select Check-out Camera --</option>
+                        <option value="laptop2">💻 Second Laptop Camera</option>
+                        {% for camera in cameras %}
+                        <option value="{{ camera.id }}">📹 {{ camera.name }} ({{ camera.ip }})</option>
+                        {% endfor %}
+                    </select>
+                    
+                    <div id="checkoutPreview" class="camera-preview" style="display: none;">
+                        <img id="checkoutFeed" src="" alt="Check-out Feed" style="width: 100%; border-radius: 8px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <button class="btn btn-success btn-lg" onclick="startAttendance()" id="startBtn">
+                <i class="fas fa-play"></i> Start Attendance
+            </button>
+            <button class="btn btn-danger btn-lg" onclick="stopAttendance()" id="stopBtn" style="display: none;">
+                <i class="fas fa-stop"></i> Stop Attendance
+            </button>
+        </div>
+    </div>
+
+    <!-- Live Log -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history me-2"></i>Live Attendance Log</h5>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;" id="attendanceLog">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <p>Start attendance to see live log</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<canvas id="canvas" style="display: none;"></canvas>
+
+<script>
+let checkinStream = null;
+let checkoutStream = null;
+let detectionInterval = null;
+let students = [];
+let currentSession = {{ active_session.id if active_session else 'null' }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadStudents();
+    
+    document.getElementById('checkinCamera').addEventListener('change', function(e) {
+        if (e.target.value) {
+            startCamera('checkin', e.target.value);
+        }
+    });
+    
+    document.getElementById('checkoutCamera').addEventListener('change', function(e) {
+        if (e.target.value) {
+            startCamera('checkout', e.target.value);
+        }
+    });
+});
+
+function loadStudents() {
+    fetch('/api/students/list')
+        .then(response => response.json())
+        .then(data => {
+            students = data.students;
+        });
+}
+
+function startCamera(type, cameraId) {
+    const preview = document.getElementById(type + 'Preview');
+    const feed = document.getElementById(type + 'Feed');
+    
+    if (cameraId === 'laptop' || cameraId === 'laptop2') {
+        // Use laptop camera
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: 'user'
+            } 
+        })
+        .then(function(stream) {
+            if (type === 'checkin') {
+                checkinStream = stream;
+            } else {
+                checkoutStream = stream;
+            }
+            
+            // Create video element for preview
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.playsinline = true;
+            video.style.width = '100%';
+            video.style.borderRadius = '8px';
+            
+            preview.innerHTML = '';
+            preview.appendChild(video);
+            preview.style.display = 'block';
+        })
+        .catch(err => {
+            alert('Error accessing camera: ' + err.message);
+        });
+    } else {
+        // Use IP camera
+        feed.src = `/api/camera/feed/${cameraId}?t=${Date.now()}`;
+        preview.style.display = 'block';
+        
+        // Update feed every 200ms
+        setInterval(() => {
+            if (document.getElementById(type + 'Camera').value === cameraId) {
+                feed.src = `/api/camera/feed/${cameraId}?t=${Date.now()}`;
+            }
+        }, 200);
+    }
+}
+
+function startAttendance() {
+    const checkinCam = document.getElementById('checkinCamera').value;
+    const checkoutCam = document.getElementById('checkoutCamera').value;
+    
+    if (!checkinCam || !checkoutCam) {
+        alert('Please select both cameras');
+        return;
+    }
+    
+    if (!currentSession) {
+        alert('No active attendance session. Please create a session first.');
+        window.location.href = '/admin/attendance-session';
+        return;
+    }
+    
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+    
+    // Start face detection
+    startDetection();
+}
+
+function stopAttendance() {
+    // Stop all streams
+    if (checkinStream) {
+        checkinStream.getTracks().forEach(track => track.stop());
+    }
+    if (checkoutStream) {
+        checkoutStream.getTracks().forEach(track => track.stop());
+    }
+    
+    if (detectionInterval) {
+        clearInterval(detectionInterval);
+    }
+    
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('stopBtn').style.display = 'none';
+}
+
+function startDetection() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    detectionInterval = setInterval(() => {
+        // Process check-in camera
+        const checkinPreview = document.getElementById('checkinPreview');
+        const checkinVideo = checkinPreview.querySelector('video');
+        
+        if (checkinVideo && checkinVideo.videoWidth > 0) {
+            canvas.width = checkinVideo.videoWidth;
+            canvas.height = checkinVideo.videoHeight;
+            ctx.drawImage(checkinVideo, 0, 0);
+            detectFace(canvas.toDataURL('image/jpeg', 0.7), 'in');
+        }
+        
+        // Process check-out camera
+        const checkoutPreview = document.getElementById('checkoutPreview');
+        const checkoutVideo = checkoutPreview.querySelector('video');
+        
+        if (checkoutVideo && checkoutVideo.videoWidth > 0) {
+            canvas.width = checkoutVideo.videoWidth;
+            canvas.height = checkoutVideo.videoHeight;
+            ctx.drawImage(checkoutVideo, 0, 0);
+            detectFace(canvas.toDataURL('image/jpeg', 0.7), 'out');
+        }
+        
+        // Also check IP camera feeds
+        const checkinImg = document.getElementById('checkinFeed');
+        if (checkinImg.src && checkinImg.complete) {
+            canvas.width = checkinImg.naturalWidth || 640;
+            canvas.height = checkinImg.naturalHeight || 480;
+            ctx.drawImage(checkinImg, 0, 0);
+            detectFace(canvas.toDataURL('image/jpeg', 0.7), 'in');
+        }
+        
+        const checkoutImg = document.getElementById('checkoutFeed');
+        if (checkoutImg.src && checkoutImg.complete) {
+            canvas.width = checkoutImg.naturalWidth || 640;
+            canvas.height = checkoutImg.naturalHeight || 480;
+            ctx.drawImage(checkoutImg, 0, 0);
+            detectFace(canvas.toDataURL('image/jpeg', 0.7), 'out');
+        }
+    }, 1000);
+}
+
+function detectFace(imageData, direction) {
+    fetch('/api/recognize-face', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.recognized && data.student) {
+            markAttendance(data.student, direction, data.confidence);
+        }
+    })
+    .catch(error => console.error('Detection error:', error));
+}
+
+function markAttendance(student, direction, confidence) {
+    fetch('/api/record-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            student_id: student.id,
+            status: direction,
+            confidence: confidence,
+            session_id: currentSession
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addToLog(student, direction, confidence);
+        }
+    });
+}
+
+function addToLog(student, direction, confidence) {
+    const log = document.getElementById('attendanceLog');
+    
+    if (log.children.length === 1 && log.children[0].classList.contains('text-center')) {
+        log.innerHTML = '';
+    }
+    
+    const entry = document.createElement('div');
+    entry.className = `alert alert-${direction === 'in' ? 'success' : 'warning'} mb-2`;
+    entry.innerHTML = `
+        <div class="d-flex justify-content-between">
+            <div>
+                <strong>${student.name}</strong> (${student.admission_number})
+                <br>
+                <small>${direction.toUpperCase()} - ${confidence}% confidence</small>
+            </div>
+            <div>
+                ${new Date().toLocaleTimeString()}
+            </div>
+        </div>
+    `;
+    
+    log.insertBefore(entry, log.firstChild);
+}
+</script>
+
+<style>
+.camera-preview {
+    margin-top: 15px;
+    background: #000;
+    border-radius: 8px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+}
+</style>
+{% endblock %}

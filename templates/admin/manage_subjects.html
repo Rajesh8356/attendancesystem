@@ -1,0 +1,178 @@
+manage_subjects.html{% extends "base.html" %}
+
+{% block title %}Manage Subjects{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-book me-2"></i>Manage Subjects</h2>
+            <p class="text-muted">Create and manage academic subjects</p>
+        </div>
+    </div>
+
+    <!-- Add Subject Form -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-plus-circle me-2"></i>Add New Subject</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_subject') }}">
+                        <div class="mb-3">
+                            <label class="form-label">Subject Name *</label>
+                            <input type="text" class="form-control" name="name" required placeholder="e.g., Mathematics">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Subject Code *</label>
+                            <input type="text" class="form-control" name="code" required placeholder="e.g., MATH101">
+                            <small class="text-muted">Unique code for the subject</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3" placeholder="Brief description of the subject"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Add Subject
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-info-circle me-2"></i>Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>Note:</strong>
+                        <ul class="mt-2 mb-0">
+                            <li>Each subject requires a unique code</li>
+                            <li>Subjects can be assigned to teachers later</li>
+                            <li>Deleting a subject will remove all related assignments</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subjects List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list me-2"></i>Subjects List</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Assignments</th>
+                                    <th>Actions</th>
+                                </thead>
+                                <tbody>
+                                    {% for subject in subjects %}
+                                    <tr>
+                                        <td><strong>{{ subject.code }}</strong></td>
+                                        <td>{{ subject.name }}</td>
+                                        <td>{{ subject.description or '-' }}</td>
+                                        <td>
+                                            <span class="badge bg-info">{{ subject.teacher_assignments.count() }}</span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-warning" onclick="editSubject({{ subject.id }})">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteSubject({{ subject.id }}, '{{ subject.name }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            <i class="fas fa-book fa-2x mb-2 text-muted"></i>
+                                            <p>No subjects added yet</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Subject Modal -->
+<div class="modal fade" id="editSubjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Subject</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editSubjectForm" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="subject_id" id="edit_subject_id">
+                    <div class="mb-3">
+                        <label class="form-label">Subject Name</label>
+                        <input type="text" class="form-control" name="name" id="edit_subject_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subject Code</label>
+                        <input type="text" class="form-control" name="code" id="edit_subject_code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" id="edit_subject_description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function editSubject(subjectId) {
+    fetch(`/api/subject/${subjectId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('edit_subject_id').value = subjectId;
+                document.getElementById('edit_subject_name').value = data.subject.name;
+                document.getElementById('edit_subject_code').value = data.subject.code;
+                document.getElementById('edit_subject_description').value = data.subject.description || '';
+                
+                document.getElementById('editSubjectForm').action = `/admin/subject/edit/${subjectId}`;
+                new bootstrap.Modal(document.getElementById('editSubjectModal')).show();
+            }
+        });
+}
+
+function deleteSubject(subjectId, subjectName) {
+    if (confirm(`Are you sure you want to delete ${subjectName}? This will remove all assignments.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/subject/delete/${subjectId}`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

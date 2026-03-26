@@ -1,0 +1,730 @@
+{% extends "base.html" %}
+
+{% block title %}Live Camera Stream - Face Recognition{% endblock %}
+
+{% block extra_css %}
+<style>
+    .camera-container {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        gap: 20px;
+        height: calc(100vh - 150px);
+        margin-top: 20px;
+    }
+    
+    /* Main Camera Feed */
+    .camera-feed-section {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .camera-header {
+        padding: 15px 20px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .camera-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .live-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background: #4ade80;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    .feed-wrapper {
+        position: relative;
+        background: #000;
+        aspect-ratio: 16/9;
+        overflow: hidden;
+        flex: 1;
+    }
+    
+    #camera-feed {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .detection-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+    
+    /* Camera Controls */
+    .camera-controls {
+        padding: 15px 20px;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .line-control {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .line-control label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+    
+    .line-control input[type="range"] {
+        flex: 1;
+        height: 6px;
+        -webkit-appearance: none;
+        background: var(--border-color);
+        border-radius: 3px;
+    }
+    
+    .line-control input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        background: var(--primary);
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .line-value {
+        min-width: 60px;
+        text-align: center;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+    
+    /* Right Panel - Detected Faces */
+    .detected-faces-panel {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .panel-header {
+        padding: 15px 20px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+    }
+    
+    .panel-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .stats-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+        font-size: 0.9rem;
+    }
+    
+    .stats-row span {
+        background: rgba(255,255,255,0.2);
+        padding: 4px 8px;
+        border-radius: 12px;
+    }
+    
+    .faces-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+    }
+    
+    .face-card {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-sm);
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid transparent;
+        animation: slideIn 0.3s ease;
+        transition: var(--transition);
+    }
+    
+    .face-card:hover {
+        transform: translateX(-5px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .face-card.high-confidence {
+        border-left-color: #06d6a0;
+    }
+    
+    .face-card.medium-confidence {
+        border-left-color: #ffd166;
+    }
+    
+    .face-card.low-confidence {
+        border-left-color: #ef476f;
+    }
+    
+    .face-card.crossing {
+        background: linear-gradient(135deg, rgba(6, 214, 160, 0.1), transparent);
+    }
+    
+    .face-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .face-id {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+    
+    .face-details {
+        display: flex;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+    
+    .confidence-bar {
+        height: 4px;
+        background: var(--border-color);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #06d6a0, #ffd166);
+        transition: width 0.3s ease;
+    }
+    
+    .badge-method {
+        font-size: 0.6rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        background: rgba(67, 97, 238, 0.1);
+        color: var(--primary);
+    }
+    
+    .badge-crossing {
+        font-size: 0.6rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        background: rgba(6, 214, 160, 0.1);
+        color: #06d6a0;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+    
+    /* Animations */
+    @keyframes pulse {
+        0% { opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { opacity: 0.8; }
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Camera Selector */
+    .camera-selector {
+        margin-bottom: 15px;
+        padding: 15px;
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+    
+    .camera-selector select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius-sm);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Camera Selector -->
+    <div class="camera-selector">
+        <div class="d-flex gap-3 align-items-center">
+            <div style="flex: 1;">
+                <label class="form-label">Select Camera</label>
+                <select id="camera-select" class="form-control" onchange="switchCamera(this.value)">
+                    <option value="laptop">💻 Laptop Camera (Built-in)</option>
+                    <option value="usb">📷 USB Camera</option>
+                    <!-- IP cameras will be loaded dynamically -->
+                </select>
+            </div>
+            <div>
+                <label class="form-label">&nbsp;</label>
+                <button class="btn btn-primary" onclick="startCamera()" id="startBtn">
+                    <i class="fas fa-play"></i> Start
+                </button>
+                <button class="btn btn-danger" onclick="stopCamera()" id="stopBtn" style="display: none;">
+                    <i class="fas fa-stop"></i> Stop
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Camera Container -->
+    <div class="camera-container">
+        <!-- Left: Camera Feed -->
+        <div class="camera-feed-section">
+            <div class="camera-header">
+                <h3>
+                    <i class="fas fa-camera"></i>
+                    <span id="camera-name">Live Feed</span>
+                </h3>
+                <div class="live-badge">
+                    <span class="pulse-dot"></span>
+                    <span id="fps-counter">0 FPS</span>
+                </div>
+            </div>
+            
+            <div class="feed-wrapper" id="feed-wrapper">
+                <img id="camera-feed" src="" alt="Camera Feed" style="display: none;">
+                <div class="detection-overlay" id="detection-overlay"></div>
+                <div class="placeholder" id="feed-placeholder" style="display: flex;">
+                    <div style="text-align: center;">
+                        <i class="fas fa-camera fa-3x mb-3" style="color: var(--text-muted);"></i>
+                        <p style="color: var(--text-muted);">Camera not started</p>
+                        <button class="btn btn-primary" onclick="startCamera()">
+                            <i class="fas fa-play"></i> Start Camera
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="camera-controls">
+                <div class="line-control">
+                    <label><i class="fas fa-arrows-alt-v"></i> Detection Line:</label>
+                    <input type="range" id="line-slider" min="50" max="430" value="240" oninput="updateLine(this.value)">
+                    <span class="line-value" id="line-value">240px</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary" onclick="takeSnapshot()">
+                    <i class="fas fa-camera"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-info" onclick="toggleFullscreen()">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right: Detected Faces Panel -->
+        <div class="detected-faces-panel">
+            <div class="panel-header">
+                <h3>
+                    <i class="fas fa-users"></i>
+                    Detected Faces
+                </h3>
+                <div class="stats-row">
+                    <span><i class="fas fa-eye"></i> <span id="face-count">0</span> detected</span>
+                    <span><i class="fas fa-check-circle"></i> <span id="crossed-count">0</span> crossed</span>
+                </div>
+            </div>
+            
+            <div class="faces-list" id="faces-list">
+                <div class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <p>No faces detected yet</p>
+                    <small>Start the camera to begin face detection</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<canvas id="canvas" style="display: none;"></canvas>
+
+<script>
+// ==================== Camera Stream Controller ====================
+let stream = null;
+let frameInterval = null;
+let detectionInterval = null;
+let currentCamera = null;
+let detectionLine = 240;
+let faceData = [];
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadIPCameras();
+});
+
+function loadIPCameras() {
+    fetch('/api/cameras/list')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('camera-select');
+            
+            if (data.success && data.cameras && data.cameras.length > 0) {
+                data.cameras.forEach(camera => {
+                    const option = document.createElement('option');
+                    option.value = `ip_${camera.db_id}`;
+                    option.textContent = `📹 ${camera.name} (${camera.ip})`;
+                    select.appendChild(option);
+                });
+            }
+        });
+}
+
+function startCamera() {
+    const cameraType = document.getElementById('camera-select').value;
+    
+    if (cameraType === 'laptop' || cameraType === 'usb') {
+        // Use browser's getUserMedia for local cameras
+        const constraints = {
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                deviceId: cameraType === 'usb' ? { exact: getUSBCameraId() } : undefined
+            }
+        };
+        
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(function(mediaStream) {
+                stream = mediaStream;
+                startVideoStream(mediaStream);
+            })
+            .catch(function(err) {
+                alert('Error accessing camera: ' + err.message);
+            });
+    } else if (cameraType.startsWith('ip_')) {
+        // Use IP camera via backend
+        const cameraId = cameraType.replace('ip_', '');
+        startIPCamera(cameraId);
+    }
+}
+
+function startVideoStream(mediaStream) {
+    // Create video element
+    const video = document.createElement('video');
+    video.srcObject = mediaStream;
+    video.autoplay = true;
+    video.playsinline = true;
+    video.style.display = 'none';
+    document.body.appendChild(video);
+    
+    // Show feed
+    document.getElementById('feed-placeholder').style.display = 'none';
+    document.getElementById('camera-feed').style.display = 'block';
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+    
+    // Start frame capture
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    frameInterval = setInterval(() => {
+        if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            const img = document.getElementById('camera-feed');
+            img.src = canvas.toDataURL('image/jpeg', 0.7);
+        }
+    }, 66); // ~15 FPS
+    
+    // Start face detection
+    startFaceDetection('local', canvas);
+}
+
+function startIPCamera(cameraId) {
+    // Show feed
+    document.getElementById('feed-placeholder').style.display = 'none';
+    document.getElementById('camera-feed').style.display = 'block';
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+    
+    // Start frame capture
+    frameInterval = setInterval(() => {
+        const img = document.getElementById('camera-feed');
+        img.src = `/api/camera/feed/${cameraId}?t=${Date.now()}`;
+    }, 100);
+    
+    // Start face detection
+    startFaceDetection(cameraId);
+}
+
+function startFaceDetection(cameraId, canvas) {
+    detectionInterval = setInterval(() => {
+        const img = document.getElementById('camera-feed');
+        
+        if (!img.src || !img.complete) return;
+        
+        let imageData;
+        
+        if (canvas) {
+            // For local camera
+            imageData = canvas.toDataURL('image/jpeg', 0.7);
+        } else {
+            // For IP camera
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || 640;
+            canvas.height = img.naturalHeight || 480;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            imageData = canvas.toDataURL('image/jpeg', 0.7);
+        }
+        
+        // Send for detection
+        fetch('/api/detect-faces', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image: imageData,
+                camera_id: cameraId,
+                line_position: detectionLine
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateDetectedFaces(data.faces);
+                drawDetectionBoxes(data.faces);
+                document.getElementById('face-count').textContent = data.faces.length;
+            }
+        })
+        .catch(error => console.error('Detection error:', error));
+    }, 500);
+}
+
+function stopCamera() {
+    // Stop video stream
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    
+    // Clear intervals
+    if (frameInterval) {
+        clearInterval(frameInterval);
+        frameInterval = null;
+    }
+    if (detectionInterval) {
+        clearInterval(detectionInterval);
+        detectionInterval = null;
+    }
+    
+    // Reset UI
+    document.getElementById('feed-placeholder').style.display = 'flex';
+    document.getElementById('camera-feed').style.display = 'none';
+    document.getElementById('startBtn').style.display = 'inline-block';
+    document.getElementById('stopBtn').style.display = 'none';
+    document.getElementById('faces-list').innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-user-slash"></i>
+            <p>No faces detected yet</p>
+        </div>
+    `;
+    document.getElementById('face-count').textContent = '0';
+    document.getElementById('crossed-count').textContent = '0';
+}
+
+function updateLine(value) {
+    detectionLine = parseInt(value);
+    document.getElementById('line-value').textContent = value + 'px';
+    
+    // Update visual line via overlay
+    drawDetectionLine();
+}
+
+function drawDetectionLine() {
+    const overlay = document.getElementById('detection-overlay');
+    overlay.innerHTML = `
+        <div style="position: absolute; top: ${detectionLine}px; left: 0; width: 100%; height: 2px; background: #ffd166; box-shadow: 0 0 10px #ffd166;"></div>
+    `;
+}
+
+function drawDetectionBoxes(faces) {
+    const overlay = document.getElementById('detection-overlay');
+    let html = `<div style="position: absolute; top: ${detectionLine}px; left: 0; width: 100%; height: 2px; background: #ffd166; box-shadow: 0 0 10px #ffd166;"></div>`;
+    
+    faces.forEach(face => {
+        const rect = face.rectangle;
+        const student = face.student;
+        const confidence = student?.confidence || 0;
+        
+        const color = confidence > 80 ? '#06d6a0' : confidence > 50 ? '#ffd166' : '#ef476f';
+        
+        html += `
+            <div class="detection-box" style="
+                position: absolute;
+                left: ${rect.left}px;
+                top: ${rect.top}px;
+                width: ${rect.width}px;
+                height: ${rect.height}px;
+                border: 2px solid ${color};
+                border-radius: 8px;
+                box-shadow: 0 0 20px ${color}80;
+            ">
+                <div style="
+                    position: absolute;
+                    top: -25px;
+                    left: 0;
+                    background: ${color};
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    white-space: nowrap;
+                ">
+                    ${student?.name || 'Unknown'} (${confidence}%)
+                </div>
+            </div>
+        `;
+    });
+    
+    overlay.innerHTML = html;
+}
+
+function updateDetectedFaces(faces) {
+    const list = document.getElementById('faces-list');
+    
+    if (faces.length === 0) {
+        list.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-user-slash"></i>
+                <p>No faces detected</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    let crossedCount = 0;
+    
+    faces.forEach(face => {
+        const student = face.student || {};
+        const confidence = student.confidence || 0;
+        const crossing = face.crossing?.detected || false;
+        
+        if (crossing) crossedCount++;
+        
+        const confidenceClass = confidence > 80 ? 'high' : confidence > 50 ? 'medium' : 'low';
+        
+        html += `
+            <div class="face-card ${confidenceClass}-confidence ${crossing ? 'crossing' : ''}">
+                <div class="face-name">
+                    <span>${student.name || 'Unknown'}</span>
+                    <span class="face-id">#${student.id || '???'}</span>
+                </div>
+                <div class="face-details">
+                    <span><i class="fas fa-chart-line"></i> ${confidence}%</span>
+                    <span class="badge-method">${student.method || 'local'}</span>
+                    ${crossing ? '<span class="badge-crossing"><i class="fas fa-arrows-alt-v"></i> CROSSING</span>' : ''}
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" style="width: ${confidence}%"></div>
+                </div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">
+                    ${new Date(face.timestamp).toLocaleTimeString()}
+                </div>
+            </div>
+        `;
+    });
+    
+    list.innerHTML = html;
+    document.getElementById('crossed-count').textContent = crossedCount;
+}
+
+function switchCamera(value) {
+    if (stream || frameInterval) {
+        if (confirm('Switch camera? Current stream will be stopped.')) {
+            stopCamera();
+        } else {
+            return;
+        }
+    }
+}
+
+function getUSBCameraId() {
+    // This would need to enumerate devices and find USB camera
+    return 'default';
+}
+
+function takeSnapshot() {
+    const img = document.getElementById('camera-feed');
+    if (img.src) {
+        const link = document.createElement('a');
+        link.download = `snapshot_${Date.now()}.jpg`;
+        link.href = img.src;
+        link.click();
+    }
+}
+
+function toggleFullscreen() {
+    const wrapper = document.getElementById('feed-wrapper');
+    if (wrapper.requestFullscreen) {
+        wrapper.requestFullscreen();
+    }
+}
+
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    stopCamera();
+});
+</script>
+{% endblock %}

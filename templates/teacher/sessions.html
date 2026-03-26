@@ -1,0 +1,200 @@
+<!-- templates/teacher/sessions.html -->
+{% extends "base_teacher.html" %}
+
+{% block title %}My Sessions{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-list me-2"></i>My Sessions</h2>
+            <p class="text-muted">View and manage all your attendance sessions</p>
+        </div>
+    </div>
+
+    <!-- Active Sessions -->
+    {% if active %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5><i class="fas fa-play-circle me-2"></i>Active Now</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Session Name</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Time</th>
+                                    <th>Camera</th>
+                                    <th>Attendance</th>
+                                    <th>Action</th>
+                                </thead>
+                                <tbody>
+                                    {% for session in active %}
+                                    <tr>
+                                        <td><strong>{{ session.name }}</strong>倒
+                                        <td>{{ session.subject.name }}倒
+                                        <td>{{ session.assigned_class.name }}倒
+                                        <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}倒
+                                        <td>
+                                            {% if session.camera %}
+                                                {{ session.camera.name }}
+                                            {% else %}
+                                                <span class="text-muted">Auto</span>
+                                            {% endif %}
+                                        倒
+                                        <td>
+                                            {% set attendance_count = session.attendance_records.filter_by(status='present').count() %}
+                                            {% set total_students = session.assigned_class.enrolled_students.filter_by(is_active=True).count() %}
+                                            {% if total_students > 0 %}
+                                                {{ ((attendance_count / total_students) * 100)|round(1) }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
+                                        倒
+                                        <td>
+                                            <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i> Take Attendance
+                                            </a>
+                                        倒
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            }</table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Upcoming Sessions -->
+    {% if upcoming %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-clock me-2"></i>Upcoming Sessions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Session Name</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Time</th>
+                                    <th>Repeat</th>
+                                    <th>Action</th>
+                                </thead>
+                                <tbody>
+                                    {% for session in upcoming %}
+                                    <tr>
+                                        <td><strong>{{ session.name }}</strong>倒
+                                        <td>{{ session.subject.name }}倒
+                                        <td>{{ session.assigned_class.name }}倒
+                                        <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}倒
+                                        <td>
+                                            {% if session.repeat_type == 'daily' %}
+                                                Daily
+                                            {% elif session.repeat_type == 'weekly' %}
+                                                Weekly
+                                            {% else %}
+                                                Once
+                                            {% endif %}
+                                        倒
+                                        <td>
+                                            <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                        倒
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            }</table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Past Sessions -->
+    {% if past %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history me-2"></i>Past Sessions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Session Name</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Time</th>
+                                    <th>Attendance</th>
+                                    <th>Action</th>
+                                </thead>
+                                <tbody>
+                                    {% for session in past %}
+                                    <tr>
+                                        <td><strong>{{ session.name }}</strong>倒
+                                        <td>{{ session.subject.name }}倒
+                                        <td>{{ session.assigned_class.name }}倒
+                                        <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}倒
+                                        <td>
+                                            {% set attendance_count = session.attendance_records.filter_by(status='present').count() %}
+                                            {% set total_students = session.assigned_class.enrolled_students.filter_by(is_active=True).count() %}
+                                            {% if total_students > 0 %}
+                                                {{ ((attendance_count / total_students) * 100)|round(1) }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
+                                        倒
+                                        <td>
+                                            <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-secondary">
+                                                <i class="fas fa-chart-bar"></i> View Report
+                                            </a>
+                                        倒
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            }</table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- No Sessions -->
+    {% if not active and not upcoming and not past %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calendar-times fa-4x mb-3 text-muted"></i>
+                    <h5>No Sessions Found</h5>
+                    <p class="text-muted">You haven't created any sessions yet.</p>
+                    <a href="{{ url_for('teacher_create_session') }}" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i> Create Your First Session
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

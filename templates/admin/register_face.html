@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}Register Face{% endblock %}
+
+{% block extra_css %}
+<style>
+    .register-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .camera-container {
+        position: relative;
+        width: 100%;
+        background: #000;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        margin-bottom: 20px;
+    }
+    
+    .camera-canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    
+    .face-guide {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 200px;
+        border: 3px solid #ffd166;
+        border-radius: 50%;
+        pointer-events: none;
+        transition: all 0.3s;
+    }
+    
+    .face-guide.good {
+        border-color: #06d6a0;
+        box-shadow: 0 0 20px rgba(6, 214, 160, 0.5);
+    }
+    
+    .face-guide.bad {
+        border-color: #ef476f;
+        animation: pulse 0.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .captured-images {
+        display: flex;
+        gap: 10px;
+        margin: 15px 0;
+        flex-wrap: wrap;
+    }
+    
+    .captured-image {
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        object-fit: cover;
+        border: 2px solid #4361ee;
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+    
+    .captured-image:hover {
+        transform: scale(1.1);
+    }
+    
+    .register-status {
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        text-align: center;
+    }
+    
+    .register-status.success {
+        background: rgba(6, 214, 160, 0.1);
+        color: #06d6a0;
+    }
+    
+    .register-status.error {
+        background: rgba(239, 71, 111, 0.1);
+        color: #ef476f;
+    }
+    
+    .register-status.info {
+        background: rgba(67, 97, 238, 0.1);
+        color: #4361ee;
+    }
+    
+    .spinner {
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-container fade-in">
+    <div class="header">
+        <div class="header-title">
+            <h1><i class="fas fa-user-plus me-2"></i>Register Face</h1>
+            <p>Capture and register face for students</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-camera me-2"></i>Face Registration</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group mb-4">
+                <label>Select Student</label>
+                <select class="form-control" id="registerStudentId">
+                    <option value="">-- Select Student --</option>
+                    {% for student in students %}
+                    <option value="{{ student.id }}">{{ student.user.full_name }} ({{ student.admission_number }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="camera-container">
+                <canvas id="registerCanvas" class="camera-canvas" width="640" height="480"></canvas>
+                <div class="face-guide" id="faceGuide"></div>
+            </div>
+
+            <div class="camera-controls text-center">
+                <button class="btn btn-primary" id="registerStartBtn">
+                    <i class="fas fa-play"></i> Start Camera
+                </button>
+                <button class="btn btn-danger" id="registerStopBtn">
+                    <i class="fas fa-stop"></i> Stop Camera
+                </button>
+                <button class="btn btn-success" id="captureBtn" disabled>
+                    <i class="fas fa-camera-retro"></i> Capture & Register
+                </button>
+            </div>
+
+            <div id="capturedImages" class="captured-images"></div>
+            <div id="registerInfo" class="register-status info">
+                <i class="fas fa-info-circle"></i> Select a student and click "Start Camera"
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let registerCameraStream = null;
+    let registerCameraActive = false;
+    let registerAnimationId = null;
+    let capturedImages = [];
+    
+    // Initialize camera
+    async function startRegisterCamera() {
+        try {
+            registerCameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const canvas = document.getElementById('registerCanvas');
+            const video = document.createElement('video');
+            video.srcObject = registerCameraStream;
+            video.playsInline = true;
+            video.autoplay = true;
+            
+            registerCameraActive = true;
+            updateRegisterFrame(video, canvas);
+            
+            document.getElementById('captureBtn').disabled = false;
+            document.getElementById('registerInfo').innerHTML = '<i class="fas fa-info-circle"></i> Camera started - Position face in the circle';
+            document.getElementById('registerInfo').className = 'register-status info';
+            
+            startFaceDetection();
+        } catch (err) {
+            document.getElementById('registerInfo').innerHTML = `<i class="fas fa-exclamation-circle"></i> Failed to start camera: ${err.message}`;
+            document.getElementById('registerInfo').className = 'register-status error';
+        }
+    }
+    
+    function stopRegisterCamera() {
+        if (registerCameraStream) {
+            registerCameraStream.getTracks().forEach(track => track.stop());
+            registerCameraStream = null;
+        }
+        registerCameraActive = false;
+        if (registerAnimationId) cancelAnimationFrame(registerAnimationId);
+        document.getElementById('captureBtn').disabled = true;
+        document.getElementById('registerInfo').innerHTML = '<i class="fas fa-info-circle"></i> Camera stopped';
+        document.getElementById('registerInfo').className = 'register-status info';
+        document.getElementById('faceGuide').className = 'face-guide';
+    }
+    
+    function updateRegisterFrame(video, canvas) {
+        if (!registerCameraActive) return;
+        if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+        registerAnimationId = requestAnimationFrame(() => updateRegisterFrame(video, canvas));
+    }
+    
+    function startFaceDetection() {
+        const canvas = document.getElementById('registerCanvas');
+        const guide = document.getElementById('faceGuide');
+        
+        setInterval(() => {
+            if (!registerCameraActive) return;
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.7);
+            
+            fetch('/api/detect-faces', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData, camera_id: 'register' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.faces && data.faces.length > 0) {
+                    const face = data.faces[0];
+                    const faceCenterY = face.center_y;
+                    const canvasHeight = canvas.height;
+                    const centerY = canvasHeight / 2;
+                    
+                    // Check if face is centered
+                    const isCentered = Math.abs(faceCenterY - centerY) < 100;
+                    
+                    if (isCentered) {
+                        guide.className = 'face-guide good';
+                        document.getElementById('registerInfo').innerHTML = '<i class="fas fa-check-circle"></i> Face detected - Good position! Click Capture';
+                        document.getElementById('registerInfo').className = 'register-status success';
+                    } else {
+                        guide.className = 'face-guide bad';
+                        document.getElementById('registerInfo').innerHTML = '<i class="fas fa-arrows-alt-v"></i> Move face to center of circle';
+                        document.getElementById('registerInfo').className = 'register-status info';
+                    }
+                } else {
+                    guide.className = 'face-guide bad';
+                    document.getElementById('registerInfo').innerHTML = '<i class="fas fa-user-slash"></i> No face detected';
+                    document.getElementById('registerInfo').className = 'register-status info';
+                }
+            });
+        }, 500);
+    }
+    
+    async function captureForRegister() {
+        const studentId = document.getElementById('registerStudentId').value;
+        if (!studentId) {
+            alert('Please select a student first');
+            return;
+        }
+        
+        const canvas = document.getElementById('registerCanvas');
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        
+        const registerInfo = document.getElementById('registerInfo');
+        registerInfo.innerHTML = '<div class="spinner"></div>';
+        registerInfo.className = 'register-status';
+        
+        try {
+            const response = await fetch('/api/simple/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: studentId, image: imageData })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                registerInfo.innerHTML = `<i class="fas fa-check-circle"></i> ${result.message}`;
+                registerInfo.className = 'register-status success';
+                
+                // Add to captured images
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.className = 'captured-image';
+                document.getElementById('capturedImages').appendChild(img);
+                
+                // Show success notification
+                showToast(result.message, 'success');
+            } else {
+                registerInfo.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${result.error}`;
+                registerInfo.className = 'register-status error';
+                showToast(result.error, 'error');
+            }
+        } catch (error) {
+            registerInfo.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`;
+            registerInfo.className = 'register-status error';
+            showToast('Error: ' + error.message, 'error');
+        }
+    }
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert-toast ${type}`;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i> ${message}`;
+        document.body.appendChild(toast);
+        toast.style.display = 'block';
+        
+        setTimeout(() => {
+            toast.style.display = 'none';
+            toast.remove();
+        }, 3000);
+    }
+    
+    // Event listeners
+    document.getElementById('registerStartBtn').addEventListener('click', startRegisterCamera);
+    document.getElementById('registerStopBtn').addEventListener('click', stopRegisterCamera);
+    document.getElementById('captureBtn').addEventListener('click', captureForRegister);
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (registerCameraStream) stopRegisterCamera();
+    });
+</script>
+{% endblock %}

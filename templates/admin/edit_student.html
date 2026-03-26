@@ -1,0 +1,620 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Student{% endblock %}
+
+{% block extra_css %}
+<style>
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-md);
+        margin-bottom: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 20px;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .card-body {
+        padding: 25px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s;
+        background: var(--bg-card);
+        color: var(--text-primary);
+    }
+    
+    .form-control:focus {
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, var(--success), #059669);
+        color: white;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger), #b91c1c);
+        color: white;
+    }
+    
+    .camera-container {
+        background: #000;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        position: relative;
+    }
+    
+    .camera-canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    
+    .face-guide {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 200px;
+        border: 3px solid #ffd166;
+        border-radius: 50%;
+        pointer-events: none;
+        transition: all 0.3s;
+    }
+    
+    .face-guide.good {
+        border-color: #06d6a0;
+        box-shadow: 0 0 20px rgba(6, 214, 160, 0.5);
+    }
+    
+    .face-guide.bad {
+        border-color: #ef476f;
+        animation: pulse 0.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .current-face {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin: 0 auto;
+        display: block;
+        border: 3px solid var(--primary);
+    }
+    
+    .camera-controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        justify-content: center;
+    }
+    
+    .alert-toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        display: none;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    }
+    
+    .alert-toast.success {
+        background: var(--success);
+        color: white;
+    }
+    
+    .alert-toast.error {
+        background: var(--danger);
+        color: white;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .register-status {
+        padding: 12px;
+        border-radius: 8px;
+        margin: 15px 0;
+        text-align: center;
+    }
+    
+    .register-status.success {
+        background: rgba(6, 214, 160, 0.1);
+        color: var(--success);
+    }
+    
+    .register-status.info {
+        background: rgba(67, 97, 238, 0.1);
+        color: var(--primary);
+    }
+    
+    .register-status.error {
+        background: rgba(239, 71, 111, 0.1);
+        color: var(--danger);
+    }
+    
+    .spinner {
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .new-face-preview {
+        margin-top: 15px;
+        text-align: center;
+    }
+    
+    .new-face-preview img {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--success);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 style="color: var(--text-primary); margin-bottom: 30px;"><i class="fas fa-user-edit me-2"></i>Edit Student Profile</h2>
+
+    <div class="row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px;">
+        <!-- Student Information Form -->
+        <div>
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-user-graduate me-2"></i>Student Information
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('edit_student', student_id=student.id) }}" id="editForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Admission Number</label>
+                                <input type="text" class="form-control" value="{{ student.admission_number }}" disabled>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Roll Number</label>
+                                <input type="text" class="form-control" name="roll_number" value="{{ student.roll_number or '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="required">Full Name</label>
+                            <input type="text" class="form-control" name="full_name" required value="{{ student.user.full_name }}">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" class="form-control" name="email" value="{{ student.user.email or '' }}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Phone</label>
+                                <input type="text" class="form-control" name="phone" value="{{ student.user.phone or '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Class</label>
+                                <select class="form-control" name="class_id">
+                                    <option value="">Select Class</option>
+                                    {% for class in classes %}
+                                    <option value="{{ class.id }}" {% if student.class_id == class.id %}selected{% endif %}>
+                                        {{ class.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Date of Birth</label>
+                                <input type="date" class="form-control" name="date_of_birth" value="{{ student.date_of_birth.strftime('%Y-%m-%d') if student.date_of_birth else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Gender</label>
+                                <select class="form-control" name="gender">
+                                    <option value="">Select Gender</option>
+                                    <option value="Male" {% if student.gender == 'Male' %}selected{% endif %}>Male</option>
+                                    <option value="Female" {% if student.gender == 'Female' %}selected{% endif %}>Female</option>
+                                    <option value="Other" {% if student.gender == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Address</label>
+                            <textarea class="form-control" name="address" rows="2">{{ student.address or '' }}</textarea>
+                        </div>
+
+                        <hr>
+
+                        <h5><i class="fas fa-users me-2"></i>Parent Information</h5>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Parent Name</label>
+                                <input type="text" class="form-control" name="parent_name" value="{{ student.parent.user.full_name if student.parent and student.parent.user else '' }}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Parent Email</label>
+                                <input type="email" class="form-control" name="parent_email" value="{{ student.parent.user.email if student.parent and student.parent.user else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Parent Phone</label>
+                            <input type="text" class="form-control" name="parent_phone" value="{{ student.parent.user.phone if student.parent and student.parent.user else '' }}">
+                        </div>
+
+                        <input type="hidden" id="face_image" name="face_image">
+
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Profile
+                            </button>
+                            <a href="{{ url_for('student_profile', student_id=student.id) }}" class="btn btn-danger">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Recapture Section -->
+        <div>
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-camera me-2"></i>Face Recapture
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h6>Current Face</h6>
+                        {% if student.face_images %}
+                            {% set face_images = student.face_images|from_json %}
+                            {% if face_images and face_images|length > 0 %}
+                                <img src="{{ url_for('static', filename='uploads/' + face_images[0]) }}?t={{ range(1, 1000000)|random }}" 
+                                     class="current-face" alt="Current Face" id="currentFaceImg">
+                            {% else %}
+                                <div class="current-face bg-secondary d-flex align-items-center justify-content-center" style="font-size: 3rem;">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="current-face bg-secondary d-flex align-items-center justify-content-center" style="font-size: 3rem;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <hr>
+
+                    <h6 class="text-center mb-3">Capture New Face</h6>
+                    <div class="camera-container">
+                        <canvas id="recaptureCanvas" class="camera-canvas" width="640" height="480"></canvas>
+                        <div class="face-guide" id="faceGuide"></div>
+                    </div>
+
+                    <div class="camera-controls">
+                        <button type="button" class="btn btn-primary" id="startCameraBtn">
+                            <i class="fas fa-camera"></i> Start Camera
+                        </button>
+                        <button type="button" class="btn btn-success" id="captureBtn" disabled>
+                            <i class="fas fa-camera-retro"></i> Capture New Face
+                        </button>
+                        <button type="button" class="btn btn-danger" id="stopCameraBtn" style="display: none;">
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                    </div>
+
+                    <div id="captureStatus" class="register-status info mt-3">
+                        <i class="fas fa-info-circle"></i> Click "Start Camera" to capture a new face
+                    </div>
+                    
+                    <div id="newFacePreview" class="new-face-preview" style="display: none;">
+                        <strong>New Face Preview:</strong><br>
+                        <img id="previewImg" src="">
+                    </div>
+
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Note:</strong> Capturing a new face will REPLACE the existing face data with the new one for better recognition.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cameraStream = null;
+    let cameraActive = false;
+    let animationId = null;
+    let faceDetectionInterval = null;
+    let capturedFace = null;
+    
+    async function startCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                } 
+            });
+            
+            const canvas = document.getElementById('recaptureCanvas');
+            const video = document.createElement('video');
+            video.srcObject = cameraStream;
+            video.playsInline = true;
+            video.autoplay = true;
+            
+            cameraActive = true;
+            updateCameraFrame(video, canvas);
+            
+            document.getElementById('startCameraBtn').style.display = 'none';
+            document.getElementById('stopCameraBtn').style.display = 'inline-block';
+            document.getElementById('captureBtn').disabled = false;
+            document.getElementById('captureStatus').innerHTML = '<i class="fas fa-info-circle"></i> Position face in the circle and click Capture';
+            document.getElementById('captureStatus').className = 'register-status info';
+            
+            startFaceDetection();
+            
+        } catch (err) {
+            document.getElementById('captureStatus').innerHTML = '<i class="fas fa-exclamation-circle"></i> Camera error: ' + err.message;
+            document.getElementById('captureStatus').className = 'register-status error';
+        }
+    }
+    
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        cameraActive = false;
+        if (animationId) cancelAnimationFrame(animationId);
+        if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+        
+        document.getElementById('startCameraBtn').style.display = 'inline-block';
+        document.getElementById('stopCameraBtn').style.display = 'none';
+        document.getElementById('captureBtn').disabled = true;
+        document.getElementById('captureStatus').innerHTML = '<i class="fas fa-info-circle"></i> Camera stopped';
+        document.getElementById('captureStatus').className = 'register-status info';
+        document.getElementById('faceGuide').className = 'face-guide';
+    }
+    
+    function updateCameraFrame(video, canvas) {
+        if (!cameraActive) return;
+        if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+        animationId = requestAnimationFrame(() => updateCameraFrame(video, canvas));
+    }
+    
+    function startFaceDetection() {
+        const canvas = document.getElementById('recaptureCanvas');
+        const guide = document.getElementById('faceGuide');
+        
+        faceDetectionInterval = setInterval(() => {
+            if (!cameraActive) return;
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.7);
+            
+            fetch('/api/detect-faces', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData, camera_id: 'recapture' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.faces && data.faces.length > 0) {
+                    const face = data.faces[0];
+                    const faceCenterY = face.center_y;
+                    const canvasHeight = canvas.height;
+                    const centerY = canvasHeight / 2;
+                    
+                    const isCentered = Math.abs(faceCenterY - centerY) < 80;
+                    const isGoodSize = face.rectangle.width > 80 && face.rectangle.height > 80;
+                    
+                    if (isCentered && isGoodSize) {
+                        guide.className = 'face-guide good';
+                        document.getElementById('captureStatus').innerHTML = '<i class="fas fa-check-circle"></i> Face detected - Good position! Click Capture';
+                        document.getElementById('captureStatus').className = 'register-status success';
+                    } else if (!isCentered) {
+                        guide.className = 'face-guide bad';
+                        document.getElementById('captureStatus').innerHTML = '<i class="fas fa-arrows-alt-v"></i> Move face to center of circle';
+                        document.getElementById('captureStatus').className = 'register-status info';
+                    } else if (!isGoodSize) {
+                        guide.className = 'face-guide bad';
+                        document.getElementById('captureStatus').innerHTML = '<i class="fas fa-search"></i> Move closer to camera';
+                        document.getElementById('captureStatus').className = 'register-status info';
+                    }
+                } else {
+                    guide.className = 'face-guide bad';
+                    document.getElementById('captureStatus').innerHTML = '<i class="fas fa-user-slash"></i> No face detected';
+                    document.getElementById('captureStatus').className = 'register-status info';
+                }
+            });
+        }, 500);
+    }
+    
+    async function captureFace() {
+        const canvas = document.getElementById('recaptureCanvas');
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Check if face is detected
+        try {
+            const response = await fetch('/api/detect-faces', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData, camera_id: 'recapture' })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success || !data.faces || data.faces.length === 0) {
+                showToast('No face detected! Please position your face in the circle.', 'error');
+                return;
+            }
+            
+            const face = data.faces[0];
+            const canvasHeight = canvas.height;
+            const centerY = canvasHeight / 2;
+            const isCentered = Math.abs(face.center_y - centerY) < 80;
+            
+            if (!isCentered) {
+                showToast('Please center your face in the circle', 'error');
+                return;
+            }
+            
+            // Show preview
+            const previewDiv = document.getElementById('newFacePreview');
+            const previewImg = document.getElementById('previewImg');
+            previewImg.src = imageData;
+            previewDiv.style.display = 'block';
+            
+            // Set the captured face image to the hidden input
+            document.getElementById('face_image').value = imageData;
+            capturedFace = imageData;
+            
+            // Update status
+            const statusDiv = document.getElementById('captureStatus');
+            statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> New face captured! Click "Update Profile" to save and replace old face.';
+            statusDiv.className = 'register-status success';
+            
+            showToast('New face captured successfully! Click Update Profile to save.', 'success');
+            
+            // Optionally stop camera after capture
+            stopCamera();
+            
+        } catch (error) {
+            showToast('Error checking face', 'error');
+        }
+    }
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert-toast ${type}`;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i> ${message}`;
+        document.body.appendChild(toast);
+        toast.style.display = 'block';
+        
+        setTimeout(() => {
+            toast.style.display = 'none';
+            toast.remove();
+        }, 3000);
+    }
+    
+    // Event listeners
+    document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+    document.getElementById('stopCameraBtn').addEventListener('click', stopCamera);
+    document.getElementById('captureBtn').addEventListener('click', captureFace);
+    
+    // Add timestamp to current face image to prevent caching
+    const currentFaceImg = document.getElementById('currentFaceImg');
+    if (currentFaceImg) {
+        currentFaceImg.src = currentFaceImg.src.split('?')[0] + '?t=' + Date.now();
+    }
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (cameraStream) stopCamera();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,995 @@
+{% extends "base.html" %}
+
+{% block page_title %}Interactive Dashboard{% endblock %}
+{% block page_subtitle %}Welcome back, {{ current_user.full_name }}! Here's your real-time institute overview.{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Welcome Card with Live Date/Time -->
+    <div class="dashboard-welcome">
+        <div class="welcome-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="welcome-title">Good 
+                        {% if now.hour < 12 %}
+                            Morning
+                        {% elif now.hour < 17 %}
+                            Afternoon
+                        {% else %}
+                            Evening
+                        {% endif %}, {{ current_user.full_name }}!
+                    </h2>
+                    <p class="welcome-subtitle" id="liveDateTime">Today is {{ now.strftime('%A, %B %d, %Y') }}. <span id="liveTime">{{ now.strftime('%H:%M:%S') }}</span></p>
+                </div>
+                <div class="live-indicator">
+                    <span class="pulse-dot"></span>
+                    <span class="live-text">LIVE</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats with Click Handlers -->
+    <div class="quick-stats">
+        <div class="stat-card-mini" onclick="location.href='{{ url_for('student_list') }}'" style="cursor: pointer;">
+            <div class="stat-mini-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-mini-value" id="totalStudents">{{ total_students }}</div>
+            <div class="stat-mini-label">Total Students</div>
+            <div class="stat-trend" id="studentTrend">+{{ new_students_month }} this month</div>
+        </div>
+        
+        <div class="stat-card-mini" onclick="location.href='{{ url_for('live_monitoring') }}'" style="cursor: pointer;">
+            <div class="stat-mini-icon" style="background: linear-gradient(135deg, #06d6a0, #059669);">
+                <i class="fas fa-sign-in-alt"></i>
+            </div>
+            <div class="stat-mini-value" id="todayCheckins">{{ today_checkins }}</div>
+            <div class="stat-mini-label">Today's Check-ins</div>
+            <div class="stat-trend" id="checkinTrend">{{ checkins_change }} from yesterday</div>
+        </div>
+        
+        <div class="stat-card-mini" onclick="location.href='{{ url_for('live_monitoring') }}?filter=present'" style="cursor: pointer;">
+            <div class="stat-mini-icon" style="background: linear-gradient(135deg, #ffd166, #d97706);">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div class="stat-mini-value" id="currentlyPresent">{{ currently_present }}</div>
+            <div class="stat-mini-label">Currently Present</div>
+            <div class="stat-trend" id="presentTrend">{{ "%.1f"|format((currently_present / total_students * 100) if total_students > 0 else 0) }}% of total</div>
+        </div>
+        
+        <div class="stat-card-mini" onclick="location.href='{{ url_for('analytics') }}'" style="cursor: pointer;">
+            <div class="stat-mini-icon" style="background: linear-gradient(135deg, #4cc9f0, #2563eb);">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-mini-value" id="attendanceRate">{{ "%.1f"|format((today_checkins / total_students * 100) if total_students > 0 else 0) }}%</div>
+            <div class="stat-mini-label">Attendance Rate</div>
+            <div class="stat-trend" id="rateTrend">{{ "%.1f"|format((today_checkins / total_students * 100) if total_students > 0 else 0) }}% today</div>
+        </div>
+    </div>
+
+    <!-- Active Session Banner -->
+    {% if active_session %}
+    <div class="alert alert-info mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-clock me-2"></i>
+                <strong>Active Session:</strong> {{ active_session.name }}
+                ({{ active_session.start_time.strftime('%H:%M') }} - {{ active_session.end_time.strftime('%H:%M') }})
+            </div>
+            <span class="badge bg-success" id="sessionStatus">Active</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Left Column -->
+        <div>
+            <!-- Interactive Attendance Chart -->
+            <div class="chart-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="m-0">
+                        <i class="fas fa-chart-bar me-2" style="color: var(--primary);"></i>
+                        Attendance Overview
+                    </h5>
+                    <div class="chart-controls">
+                        <select class="form-control" id="chartRange" style="width: auto; padding: 6px 30px 6px 12px; display: inline-block; margin-right: 10px;">
+                            <option value="7" selected>Last 7 Days</option>
+                            <option value="14">Last 14 Days</option>
+                            <option value="30">Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportChartData()">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="attendanceChart"></canvas>
+                </div>
+                <div class="chart-footer mt-2 text-center text-muted">
+                    <span id="chartSummary">Click on data points for details</span>
+                </div>
+            </div>
+            
+            <!-- Camera Attendance Status -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-video me-2"></i>Live Camera Attendance</h5>
+                </div>
+                <div class="card-body" id="cameraAttendance">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-spinner fa-spin"></i> Loading camera status...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Class-wise Attendance with Expand/Collapse -->
+            <div class="card mt-4">
+                <div class="card-header" onclick="toggleClassDetails()" style="cursor: pointer;">
+                    <h5><i class="fas fa-school me-2"></i>Class-wise Attendance Today</h5>
+                    <div>
+                        <span class="badge badge-primary">{{ classes|length }} Classes</span>
+                        <i class="fas fa-chevron-down ms-2" id="classToggleIcon"></i>
+                    </div>
+                </div>
+                <div class="card-body" id="classDetails">
+                    <div class="table-container">
+                        <table class="interactive-table">
+                            <thead>
+                                <tr>
+                                    <th>Class</th>
+                                    <th>Present</th>
+                                    <th>Total</th>
+                                    <th>Percentage</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in class_stats %}
+                                <tr onclick="viewClass({{ stat.class.id }})" style="cursor: pointer;">
+                                    <td><strong>{{ stat.class.name }}</strong></td>
+                                    <td>{{ stat.present }}</td>
+                                    <td>{{ stat.total }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="width: 80px;">
+                                                <div class="progress-bar {% if stat.percentage >= 75 %}success{% else %}warning{% endif %}" 
+                                                     style="width: {{ stat.percentage }}%"></div>
+                                            </div>
+                                            <span>{{ stat.percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); viewClass({{ stat.class.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-3">No classes found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div>
+            <!-- Real-time Activity Feed -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history me-2"></i>Real-time Activity</h5>
+                    <div>
+                        <span class="badge badge-success" id="activityCount">{{ recent_attendance|length }}</span>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="refreshActivity()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;" id="activityFeed">
+                    <div class="activity-timeline">
+                        {% for record in recent_attendance %}
+                        <div class="activity-item" onclick="viewStudent({{ record.student.id }})" style="cursor: pointer;">
+                            <div class="activity-time">{{ record.timestamp.strftime('%H:%M:%S') }}</div>
+                            <div class="activity-title">{{ record.student.user.full_name if record.student and record.student.user else 'Unknown' }}</div>
+                            <div class="activity-desc">
+                                <span class="badge {% if record.status == 'in' %}badge-success{% else %}badge-warning{% endif %}">
+                                    {{ record.status|upper }}
+                                </span>
+                                <span class="ms-2">Confidence: {{ record.confidence }}%</span>
+                                <span class="ms-2 text-muted">
+                                    <i class="fas fa-map-marker-alt"></i> {{ record.camera_name or 'Camera' }}
+                                </span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-clock fa-3x mb-3" style="color: var(--text-muted);"></i>
+                            <p style="color: var(--text-muted);">No recent activity</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Line Crossing Statistics -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-arrows-alt-v me-2"></i>Line Crossing Stats</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3 class="text-primary" id="totalCrossings">0</h3>
+                            <p class="text-muted">Total Crossings</p>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success" id="activeCameras">0</h3>
+                            <p class="text-muted">Active Cameras</p>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 20px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ attendance_rate }}%" 
+                             aria-valuenow="{{ attendance_rate }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ attendance_rate }}% Attendance
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Low Attendance Alert -->
+            {% if low_attendance and low_attendance|length > 0 %}
+            <div class="card mt-4" style="border-color: #ef476f;">
+                <div class="card-header" style="background: rgba(239, 71, 111, 0.1);" onclick="toggleLowAttendance()" style="cursor: pointer;">
+                    <h5 style="color: #ef476f;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Low Attendance Alert (<75%)
+                    </h5>
+                    <span class="badge badge-danger">{{ low_attendance|length }}</span>
+                </div>
+                <div class="card-body" id="lowAttendanceList">
+                    <div class="table-container">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Attendance</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in low_attendance[:3] %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.student.user.full_name if item.student.user else 'Unknown' }}</strong><br>
+                                        <small class="text-muted">{{ item.student.admission_number }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress" style="width: 60px;">
+                                                <div class="progress-bar danger" style="width: {{ item.percentage }}%"></div>
+                                            </div>
+                                            <span>{{ item.percentage }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="notifyParent({{ item.student.id }}, event)">
+                                            <i class="fas fa-bell"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewStudent({{ item.student.id }}, event)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if low_attendance|length > 3 %}
+                    <div class="text-center mt-2">
+                        <a href="#" onclick="showAllLowAttendance(event)">View all {{ low_attendance|length }} students</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions Panel -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="quick-actions-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button class="btn btn-outline-primary btn-block" onclick="location.href='{{ url_for('register_student') }}'">
+                            <i class="fas fa-user-plus"></i> Register Student
+                        </button>
+                        <button class="btn btn-outline-success btn-block" onclick="location.href='{{ url_for('live_monitoring') }}'">
+                            <i class="fas fa-camera"></i> Monitor Cameras
+                        </button>
+                        <button class="btn btn-outline-info btn-block" onclick="location.href='{{ url_for('manage_teachers') }}'">
+                            <i class="fas fa-chalkboard-user"></i> Manage Teachers
+                        </button>
+                        <button class="btn btn-outline-info btn-block" onclick="location.href='{{ url_for('admin_teacher_assignments') }}'">
+                            <i class="fas fa-user-graduate"></i> Teacher Assignments
+                        </button>
+                        <button class="btn btn-outline-warning btn-block" onclick="location.href='{{ url_for('manage_subjects') }}'">
+                            <i class="fas fa-book"></i> Manage Subjects
+                        </button>
+                        <button class="btn btn-outline-danger btn-block" onclick="generateReport()">
+                            <i class="fas fa-file-pdf"></i> Generate Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Details Modal -->
+<div class="modal" id="studentModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalStudentName">Student Details</h3>
+            <button class="modal-close" onclick="hideModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalContent">
+            Loading...
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="viewFullProfile()">View Full Profile</button>
+            <button class="btn btn-outline" onclick="hideModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal" id="exportModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Export Data</h3>
+            <button class="modal-close" onclick="hideExportModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Choose export format:</p>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-success" onclick="exportData('csv')">
+                    <i class="fas fa-file-csv"></i> CSV
+                </button>
+                <button class="btn btn-outline-danger" onclick="exportData('pdf')">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </button>
+                <button class="btn btn-outline-primary" onclick="exportData('excel')">
+                    <i class="fas fa-file-excel"></i> Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<script>
+// ==================== Global Variables ====================
+let attendanceChart = null;
+let socket = null;
+let activityUpdateInterval = null;
+
+// ==================== Initialize on Load ====================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard initializing...');
+    
+    // Initialize chart
+    loadAttendanceChart(7);
+    
+    // Initialize WebSocket connection for real-time updates
+    initializeSocket();
+    
+    // Start live time updates
+    startLiveTime();
+    
+    // Start real-time activity feed
+    startActivityFeed();
+    
+    // Load camera attendance
+    loadCameraAttendance();
+    
+    // Load line crossing stats
+    loadLineCrossingStats();
+    
+    // Add window resize handler
+    window.addEventListener('resize', debounce(function() {
+        if (attendanceChart) {
+            attendanceChart.resize();
+        }
+    }, 250));
+});
+
+// ==================== WebSocket Real-time Updates ====================
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('connect', function() {
+        console.log('Connected to real-time server');
+        showNotification('Connected to live feed', 'success');
+    });
+    
+    socket.on('attendance_update', function(data) {
+        console.log('New attendance:', data);
+        updateStats();
+        addActivityItem(data);
+        loadAttendanceChart(document.getElementById('chartRange').value);
+        loadCameraAttendance();
+        loadLineCrossingStats();
+    });
+    
+    socket.on('line_crossing', function(data) {
+        console.log('Line crossing detected:', data);
+        loadLineCrossingStats();
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('Disconnected from server');
+        showNotification('Live connection lost. Reconnecting...', 'warning');
+    });
+}
+
+function updateStats() {
+    fetch('/api/attendance/stats')
+        .then(response => response.json())
+        .then(stats => {
+            document.getElementById('totalStudents').textContent = stats.total_students;
+            document.getElementById('todayCheckins').textContent = stats.checkins_today;
+            document.getElementById('currentlyPresent').textContent = stats.active_now;
+            document.getElementById('attendanceRate').textContent = stats.attendance_rate + '%';
+            
+            document.getElementById('presentTrend').textContent = 
+                ((stats.active_now / stats.total_students) * 100).toFixed(1) + '% of total';
+        });
+}
+
+// ==================== Camera Attendance ====================
+function loadCameraAttendance() {
+    fetch('/api/cameras/list')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('cameraAttendance');
+            
+            if (data.success && data.cameras && data.cameras.length > 0) {
+                let html = '<div class="list-group">';
+                
+                data.cameras.forEach(camera => {
+                    const statusClass = camera.status === 'connected' ? 'success' : 'secondary';
+                    const statusIcon = camera.status === 'connected' ? 'fa-circle' : 'fa-circle-o';
+                    
+                    html += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-camera text-${statusClass} me-2"></i>
+                                <strong>${camera.name}</strong>
+                                <br>
+                                <small class="text-muted">${camera.ip}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-${statusClass}">${camera.status}</span>
+                                <br>
+                                <span class="badge bg-info mt-1">${camera.crossed_today || 0} crossings</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+                // Update active cameras count
+                const activeCount = data.cameras.filter(c => c.status === 'connected').length;
+                document.getElementById('activeCameras').textContent = activeCount;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-video-slash fa-2x mb-2"></i>
+                        <p>No cameras configured</p>
+                        <a href="/admin/monitoring" class="btn btn-sm btn-primary">Add Camera</a>
+                    </div>
+                `;
+            }
+        });
+}
+
+// ==================== Line Crossing Stats ====================
+function loadLineCrossingStats() {
+    fetch('/api/attendance/stats')
+        .then(response => response.json())
+        .then(stats => {
+            document.getElementById('totalCrossings').textContent = stats.checkins_today || 0;
+        });
+}
+
+// ==================== Interactive Chart ====================
+function loadAttendanceChart(days = 7) {
+    const ctx = document.getElementById('attendanceChart').getContext('2d');
+    
+    ctx.font = '14px Inter';
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'center';
+    ctx.fillText('Loading...', ctx.canvas.width/2, ctx.canvas.height/2);
+    
+    fetch(`/api/analytics/daily-trend?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            const labels = data.dates.map(date => {
+                const d = new Date(date);
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+            
+            const values = data.counts;
+            
+            if (attendanceChart) {
+                attendanceChart.destroy();
+            }
+            
+            attendanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Students Present',
+                        data: values,
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#4361ee',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#4361ee',
+                        pointRadius: 5,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            showDayDetails(labels[index], values[index]);
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    return `${context.raw} students present`;
+                                },
+                                afterLabel: (context) => {
+                                    return 'Click for details';
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        }
+                    }
+                }
+            });
+            
+            document.getElementById('chartSummary').innerHTML = 
+                `📊 Average: ${data.average} students/day | Peak: ${data.peak} students`;
+        })
+        .catch(error => {
+            console.error('Error loading chart:', error);
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillStyle = '#ef476f';
+            ctx.fillText('Error loading data', ctx.canvas.width/2, ctx.canvas.height/2);
+        });
+}
+
+function showDayDetails(date, count) {
+    alert(`On ${date}, ${count} students were present.`);
+}
+
+// ==================== Real-time Activity Feed ====================
+function startActivityFeed() {
+    refreshActivity();
+    activityUpdateInterval = setInterval(refreshActivity, 10000);
+}
+
+function refreshActivity() {
+    fetch('/api/attendance/recent?limit=10')
+        .then(response => response.json())
+        .then(records => {
+            const feed = document.getElementById('activityFeed');
+            const timeline = feed.querySelector('.activity-timeline');
+            
+            if (!timeline) return;
+            
+            timeline.innerHTML = '';
+            document.getElementById('activityCount').textContent = records.length;
+            
+            records.forEach(record => {
+                const item = document.createElement('div');
+                item.className = 'activity-item';
+                item.onclick = () => viewStudent(record.student_id);
+                item.style.cursor = 'pointer';
+                
+                const time = new Date(record.timestamp).toLocaleTimeString();
+                const cameraName = record.camera_name || 'Camera ' + (record.camera_id || '1');
+                
+                item.innerHTML = `
+                    <div class="activity-time">${time}</div>
+                    <div class="activity-title">${record.student_name || 'Unknown'}</div>
+                    <div class="activity-desc">
+                        <span class="badge ${record.status === 'in' ? 'badge-success' : 'badge-warning'}">
+                            ${record.status.toUpperCase()}
+                        </span>
+                        <span class="ms-2">${record.confidence}%</span>
+                        <span class="ms-2 text-muted">
+                            <i class="fas fa-map-marker-alt"></i> ${cameraName}
+                        </span>
+                    </div>
+                `;
+                
+                timeline.appendChild(item);
+            });
+            
+            if (records.length === 0) {
+                timeline.innerHTML = '<div class="text-center py-4">No recent activity</div>';
+            }
+        });
+}
+
+function addActivityItem(data) {
+    const feed = document.getElementById('activityFeed');
+    const timeline = feed.querySelector('.activity-timeline');
+    
+    const item = document.createElement('div');
+    item.className = 'activity-item highlight';
+    item.onclick = () => viewStudent(data.student_id);
+    
+    const cameraName = data.camera_name || 'Camera ' + (data.camera_id || '1');
+    
+    item.innerHTML = `
+        <div class="activity-time">${new Date().toLocaleTimeString()}</div>
+        <div class="activity-title">${data.student_name}</div>
+        <div class="activity-desc">
+            <span class="badge ${data.status === 'in' ? 'badge-success' : 'badge-warning'}">
+                ${data.status.toUpperCase()}
+            </span>
+            <span class="ms-2">${data.confidence}%</span>
+            <span class="ms-2 text-muted">
+                <i class="fas fa-map-marker-alt"></i> ${cameraName}
+            </span>
+        </div>
+    `;
+    
+    timeline.insertBefore(item, timeline.firstChild);
+    
+    setTimeout(() => item.classList.remove('highlight'), 2000);
+    
+    const count = document.getElementById('activityCount');
+    count.textContent = parseInt(count.textContent) + 1;
+}
+
+// ==================== Interactive Functions ====================
+function viewClass(classId, event) {
+    if (event) event.stopPropagation();
+    window.location.href = `/teacher/class/${classId}`;
+}
+
+function viewStudent(studentId, event) {
+    if (event) event.stopPropagation();
+    
+    const modal = document.getElementById('studentModal');
+    const modalContent = document.getElementById('modalContent');
+    
+    modalContent.innerHTML = 'Loading...';
+    modal.classList.add('active');
+    
+    fetch(`/api/student/${studentId}/attendance?days=7`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '<div class="student-quick-view">';
+            html += '<p><strong>Recent Attendance:</strong></p>';
+            html += '<table class="table table-sm">';
+            html += '<tr><th>Date</th><th>Status</th><th>Time</th></tr>';
+            
+            Object.keys(data).slice(0, 5).forEach(date => {
+                data[date].forEach(record => {
+                    html += `<tr>
+                        <td>${date}</td>
+                        <td><span class="badge badge-${record.status === 'in' ? 'success' : 'warning'}">${record.status}</span></td>
+                        <td>${record.time}</td>
+                    </tr>`;
+                });
+            });
+            
+            html += '</table></div>';
+            modalContent.innerHTML = html;
+            window.currentStudentId = studentId;
+        });
+}
+
+function hideModal() {
+    document.getElementById('studentModal').classList.remove('active');
+}
+
+function viewFullProfile() {
+    if (window.currentStudentId) {
+        window.location.href = `/admin/student/${window.currentStudentId}`;
+    }
+}
+
+function notifyParent(studentId, event) {
+    if (event) event.stopPropagation();
+    
+    if (confirm('Send notification to parent?')) {
+        fetch('/api/notify-parent/' + studentId, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Parent notified successfully!', 'success');
+                }
+            });
+    }
+}
+
+function toggleClassDetails() {
+    const details = document.getElementById('classDetails');
+    const icon = document.getElementById('classToggleIcon');
+    
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+    } else {
+        details.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+function toggleLowAttendance() {
+    const list = document.getElementById('lowAttendanceList');
+    list.style.display = list.style.display === 'none' ? 'block' : 'none';
+}
+
+function showAllLowAttendance(event) {
+    event.preventDefault();
+    window.location.href = "{{ url_for('student_list') }}?attendance=low";
+}
+
+function generateReport() {
+    document.getElementById('exportModal').classList.add('active');
+}
+
+function hideExportModal() {
+    document.getElementById('exportModal').classList.remove('active');
+}
+
+function exportData(format) {
+    const startDate = prompt('Enter start date (YYYY-MM-DD):', 
+        new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0]);
+    const endDate = prompt('Enter end date (YYYY-MM-DD):', 
+        new Date().toISOString().split('T')[0]);
+    
+    if (startDate && endDate) {
+        window.location.href = `/api/export/attendance?start=${startDate}&end=${endDate}&format=${format}`;
+    }
+    
+    hideExportModal();
+}
+
+function exportChartData() {
+    const days = document.getElementById('chartRange').value;
+    window.location.href = `/api/export/chart-data?days=${days}`;
+}
+
+// ==================== Live Time ====================
+function startLiveTime() {
+    setInterval(() => {
+        const now = new Date();
+        document.getElementById('liveTime').textContent = now.toLocaleTimeString();
+    }, 1000);
+}
+
+// ==================== Chart Range Change ====================
+document.getElementById('chartRange').addEventListener('change', function(e) {
+    loadAttendanceChart(e.target.value);
+});
+
+// ==================== Utility Functions ====================
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function showNotification(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ==================== Cleanup ====================
+window.addEventListener('beforeunload', function() {
+    if (activityUpdateInterval) {
+        clearInterval(activityUpdateInterval);
+    }
+    if (socket) {
+        socket.disconnect();
+    }
+});
+</script>
+
+<style>
+/* Live indicator */
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    background: #4ade80;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.live-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+/* Stat trends */
+.stat-trend {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 5px;
+}
+
+/* Interactive table rows */
+.interactive-table tbody tr:hover {
+    background: rgba(67, 97, 238, 0.05);
+    cursor: pointer;
+}
+
+/* Activity item highlight */
+.activity-item.highlight {
+    background: rgba(67, 97, 238, 0.1);
+    animation: highlightFade 2s ease;
+}
+
+@keyframes highlightFade {
+    0% { background: rgba(67, 97, 238, 0.3); }
+    100% { background: transparent; }
+}
+
+/* Toast notifications */
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+    border-left: 4px solid var(--primary);
+}
+
+.toast-notification.toast-success {
+    border-left-color: var(--success);
+}
+
+.toast-notification.toast-warning {
+    border-left-color: var(--warning);
+}
+
+.toast-notification.toast-danger {
+    border-left-color: var(--danger);
+}
+
+.toast-notification.fade-out {
+    animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Quick actions grid */
+.quick-actions-grid .btn {
+    padding: 15px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.quick-actions-grid .btn i {
+    font-size: 1.2rem;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.student-quick-view {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Camera list styles */
+.list-group-item {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.list-group-item:hover {
+    background: rgba(67, 97, 238, 0.05);
+}
+</style>
+{% endblock %}

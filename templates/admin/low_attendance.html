@@ -1,0 +1,467 @@
+<!-- templates/admin/low_attendance.html -->
+{% extends "base.html" %}
+
+{% block title %}Low Attendance Students{% endblock %}
+
+{% block extra_css %}
+<style>
+    .low-attendance-container {
+        padding: 20px;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #ef476f, #d43f62);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        color: white;
+        margin-bottom: 25px;
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    
+    .student-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid var(--border-color);
+        transition: all 0.3s;
+    }
+    
+    .student-card:hover {
+        transform: translateX(5px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .progress-danger {
+        background: linear-gradient(90deg, #ef476f, #ff6b6b);
+    }
+    
+    .btn-notify {
+        background: linear-gradient(135deg, #4361ee, #3a56d4);
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-notify:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+    }
+    
+    .filter-bar {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .attendance-table {
+        margin-top: 20px;
+    }
+    
+    .attendance-table th, .attendance-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .attendance-table th {
+        background: var(--bg-primary);
+        font-weight: 600;
+    }
+    
+    .modal-content {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+    }
+    
+    .email-preview {
+        background: var(--bg-primary);
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .btn-email {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="low-attendance-container">
+    <h2><i class="fas fa-exclamation-triangle me-2"></i>Low Attendance Students</h2>
+    <p class="text-muted">Students with attendance below 75% require attention</p>
+    
+    <!-- Stats Card -->
+    <div class="stats-card">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="stats-number" id="lowAttendanceCount">0</div>
+                <div>Students Below 75%</div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-number" id="criticalCount">0</div>
+                <div>Below 50% (Critical)</div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-number" id="totalStudents">0</div>
+                <div>Total Students</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label>Class Filter</label>
+                <select id="classFilter" class="form-control">
+                    <option value="">All Classes</option>
+                    {% for class in classes %}
+                    <option value="{{ class.id }}">{{ class.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label>Threshold</label>
+                <select id="thresholdFilter" class="form-control">
+                    <option value="75">Below 75%</option>
+                    <option value="60">Below 60%</option>
+                    <option value="50">Below 50%</option>
+                    <option value="40">Below 40%</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn-filter" id="applyFilterBtn">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+                <button class="btn-notify ms-2" id="notifyAllBtn">
+                    <i class="fas fa-envelope"></i> Notify All Parents
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Students List -->
+    <div id="studentsList">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Loading low attendance students...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Send Email Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Send Attendance Alert to Parent</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="emailStudentInfo" class="mb-3"></div>
+                <div class="form-group mb-3">
+                    <label>Subject</label>
+                    <input type="text" id="emailSubject" class="form-control" value="Attendance Alert - Low Attendance Notice">
+                </div>
+                <div class="form-group mb-3">
+                    <label>Message</label>
+                    <textarea id="emailMessage" class="form-control" rows="6"></textarea>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Include Attendance Report (PDF)</label>
+                    <div class="form-check">
+                        <input type="checkbox" id="includeReport" class="form-check-input" checked>
+                        <label class="form-check-label">Attach detailed attendance report (PDF/Excel)</label>
+                    </div>
+                </div>
+                <div class="email-preview" id="emailPreview"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-email" id="sendEmailBtn">
+                    <i class="fas fa-paper-plane"></i> Send Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let lowAttendanceData = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadLowAttendanceData();
+    
+    document.getElementById('applyFilterBtn').addEventListener('click', loadLowAttendanceData);
+    document.getElementById('notifyAllBtn').addEventListener('click', notifyAllParents);
+});
+
+async function loadLowAttendanceData() {
+    const classId = document.getElementById('classFilter').value;
+    const threshold = document.getElementById('thresholdFilter').value;
+    
+    let url = `/api/analytics/low-attendance?threshold=${threshold}`;
+    if (classId) url += `&class_id=${classId}`;
+    
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            lowAttendanceData = data.students;
+            renderStudentsList(data);
+            updateStats(data);
+        }
+    } catch (error) {
+        console.error('Error loading low attendance data:', error);
+    }
+}
+
+function renderStudentsList(data) {
+    const container = document.getElementById('studentsList');
+    
+    if (!data.students || data.students.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5>No students with low attendance</h5>
+                <p class="text-muted">All students are meeting the attendance requirement</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = data.students.map(student => `
+        <div class="student-card">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="student-avatar" style="width: 50px; height: 50px; background: linear-gradient(135deg, #ef476f, #d43f62); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold;">
+                            ${student.name ? student.name.charAt(0) : 'S'}
+                        </div>
+                        <div>
+                            <h5 class="mb-1">${escapeHtml(student.name)}</h5>
+                            <div class="text-muted small">${escapeHtml(student.admission_number)}</div>
+                            <div class="text-muted small">${escapeHtml(student.class_name || 'N/A')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-1">Attendance: <strong class="${student.percentage < 50 ? 'text-danger' : 'text-warning'}">${student.percentage}%</strong></div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar ${student.percentage < 50 ? 'bg-danger' : 'bg-warning'}" style="width: ${student.percentage}%"></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small">
+                        <div>Present: ${student.present_days} days</div>
+                        <div>Absent: ${student.absent_days} days</div>
+                        <div>Total Days: ${student.total_days}</div>
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button class="btn-notify" onclick="openEmailModal(${student.id}, '${escapeHtml(student.name)}', ${student.percentage})">
+                        <i class="fas fa-envelope"></i> Notify Parent
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateStats(data) {
+    document.getElementById('lowAttendanceCount').textContent = data.students.length;
+    document.getElementById('totalStudents').textContent = data.total_students;
+    
+    const criticalCount = data.students.filter(s => s.percentage < 50).length;
+    document.getElementById('criticalCount').textContent = criticalCount;
+}
+
+let currentStudentForEmail = null;
+
+function openEmailModal(studentId, studentName, percentage) {
+    currentStudentForEmail = studentId;
+    
+    const student = lowAttendanceData.find(s => s.id == studentId);
+    if (!student) return;
+    
+    const modal = new bootstrap.Modal(document.getElementById('emailModal'));
+    const studentInfo = document.getElementById('emailStudentInfo');
+    const messageArea = document.getElementById('emailMessage');
+    
+    studentInfo.innerHTML = `
+        <div class="alert alert-warning">
+            <strong>${escapeHtml(studentName)}</strong> (${escapeHtml(student.admission_number)})<br>
+            Current Attendance: <strong class="text-danger">${percentage}%</strong>
+        </div>
+    `;
+    
+    const defaultMessage = `Dear Parent,
+
+This is to inform you that your child ${studentName} (${student.admission_number}) currently has an attendance rate of ${percentage}%, which is below the required minimum of 75%.
+
+Regular attendance is crucial for academic success. Please ensure your child attends classes regularly.
+
+For more details, please log in to the parent portal.
+
+Best regards,
+Attendance Management System`;
+    
+    messageArea.value = defaultMessage;
+    updateEmailPreview();
+    
+    messageArea.addEventListener('input', updateEmailPreview);
+    
+    modal.show();
+}
+
+function updateEmailPreview() {
+    const subject = document.getElementById('emailSubject').value;
+    const message = document.getElementById('emailMessage').value;
+    const includeReport = document.getElementById('includeReport').checked;
+    
+    const preview = document.getElementById('emailPreview');
+    preview.innerHTML = `
+        <strong>Subject:</strong> ${escapeHtml(subject)}<br>
+        <strong>Message:</strong><br>
+        <div style="white-space: pre-wrap;">${escapeHtml(message)}</div>
+        ${includeReport ? '<hr><small>📎 Attachment: Attendance Report (PDF/Excel) will be included</small>' : ''}
+    `;
+}
+
+document.getElementById('sendEmailBtn').addEventListener('click', async function() {
+    if (!currentStudentForEmail) return;
+    
+    const subject = document.getElementById('emailSubject').value;
+    const message = document.getElementById('emailMessage').value;
+    const includeReport = document.getElementById('includeReport').checked;
+    
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/notify-parent/low-attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_id: currentStudentForEmail,
+                subject: subject,
+                message: message,
+                include_report: includeReport
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification('Email sent successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
+        } else {
+            showNotification('Error sending email: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+});
+
+async function notifyAllParents() {
+    if (!confirm(`Send attendance alerts to all ${lowAttendanceData.length} parents?`)) return;
+    
+    const btn = document.getElementById('notifyAllBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/notify-parent/bulk-low-attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                students: lowAttendanceData.map(s => s.id)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(`Sent ${data.sent_count} emails successfully!`, 'success');
+        } else {
+            showNotification('Error sending emails', 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function showNotification(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type === 'error' ? 'error' : ''}`;
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i> ${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+
+<style>
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    border-left: 4px solid var(--success);
+}
+
+.toast-notification.error {
+    border-left-color: var(--danger);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+</style>
+{% endblock %}

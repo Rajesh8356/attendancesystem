@@ -1,0 +1,1358 @@
+<!-- templates/admin/simple_attendance.html - Updated with face persistence -->
+{% extends "base.html" %}
+
+{% block title %}Dual Camera Attendance with Liveness Detection{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dual-camera-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .camera-section {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .camera-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .camera-header h3 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .camera-container {
+        position: relative;
+        width: 100%;
+        background: #000;
+        border-radius: 10px;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+    }
+    
+    .camera-canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    
+    .camera-controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .detection-info {
+        text-align: center;
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .detection-info.recognized {
+        background: rgba(6, 214, 160, 0.1);
+        color: var(--success);
+    }
+    
+    .detection-info.unknown {
+        background: rgba(239, 71, 111, 0.1);
+        color: var(--danger);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .stat-number {
+        font-size: 2.8em;
+        font-weight: bold;
+        background: linear-gradient(135deg, #fff, #10b981);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: #94a3b8;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .face-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .face-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 15px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+    }
+    
+    .session-selector {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        border-radius: var(--border-radius);
+        padding: 25px;
+        margin-bottom: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+    
+    .session-selector select {
+        background: #334155;
+        border-color: #475569;
+        color: white;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    th {
+        background: var(--bg-primary);
+        font-weight: 600;
+    }
+    
+    .alert-toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        display: none;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    }
+    
+    .alert-toast.success {
+        background: var(--success);
+        color: white;
+    }
+    
+    .alert-toast.error {
+        background: var(--danger);
+        color: white;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .spinner {
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .badge-success {
+        background: #10b981;
+        color: white;
+    }
+    
+    .badge-danger {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .detection-box {
+        position: absolute;
+        border: 2px solid #ffd166;
+        border-radius: 4px;
+        pointer-events: none;
+    }
+    
+    .detection-box.marked {
+        border-color: #10b981;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    }
+    
+    .detection-label {
+        position: absolute;
+        top: -25px;
+        left: 0;
+        background: #ffd166;
+        color: #333;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .detection-label.marked {
+        background: #10b981;
+        color: white;
+    }
+    
+    .camera-select-group {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: var(--bg-primary);
+        border-radius: var(--border-radius-sm);
+    }
+    
+    .camera-select-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    
+    .camera-select-group select {
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        color: var(--text-primary);
+    }
+    
+    .corner-faces {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 280px;
+        pointer-events: none;
+        z-index: 20;
+        max-height: 80%;
+        overflow-y: auto;
+    }
+    
+    .corner-face {
+        background: rgba(0, 0, 0, 0.85);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        backdrop-filter: blur(5px);
+        border-left: 3px solid;
+        transition: all 0.2s ease;
+        animation: fadeInUp 0.3s ease;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .corner-face-img {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        font-weight: bold;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    
+    .corner-face-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .corner-face-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .corner-face-name {
+        font-weight: bold;
+        font-size: 0.9rem;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .corner-face-status {
+        font-size: 0.7rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .corner-face small {
+        font-size: 0.65rem;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .line-control {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        color: white;
+        z-index: 20;
+        cursor: pointer;
+    }
+    
+    .btn-sm {
+        padding: 5px 12px;
+        font-size: 0.85rem;
+    }
+    
+    .text-success {
+        color: var(--success);
+    }
+    
+    .text-danger {
+        color: var(--danger);
+    }
+    
+    .text-warning {
+        color: var(--warning);
+    }
+    
+    .small {
+        font-size: 0.8rem;
+    }
+    
+    .session-time-badge {
+        background: rgba(0,0,0,0.5);
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-family: monospace;
+    }
+    
+    .session-time-badge.active {
+        background: #10b981;
+        animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+    }
+    
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .export-buttons button {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title">
+            <h1><i class="fas fa-camera-retro me-2"></i>Dual Camera Attendance with Liveness Detection</h1>
+            <p>Check-in and Check-out with automatic face recognition</p>
+        </div>
+    </div>
+
+    <!-- Session Selector -->
+    <div class="session-selector">
+        <h5><i class="fas fa-clock me-2"></i>Select Attendance Session</h5>
+        <div class="row">
+            <div class="col-md-8">
+                <select class="form-control" id="sessionSelect">
+                    <option value="">-- Select a Session (Attendance will be auto-marked) --</option>
+                    {% for session in active_sessions %}
+                    <option value="{{ session.id }}" 
+                            data-start="{{ session.start_time.strftime('%H:%M') }}"
+                            data-end="{{ session.end_time.strftime('%H:%M') }}"
+                            {% if active_session and active_session.id == session.id %}selected{% endif %}>
+                        {{ session.name }} ({{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <a href="{{ url_for('attendance_session') }}" class="btn btn-success btn-sm w-100">
+                    <i class="fas fa-plus"></i> Create Session
+                </a>
+                <a href="{{ url_for('create_active_session') }}" class="btn btn-warning btn-sm w-100 mt-2">
+                    <i class="fas fa-play-circle"></i> Create Active Session (Next 2 Hours)
+                </a>
+            </div>
+        </div>
+        <div id="sessionInfo" class="mt-2"></div>
+        <div id="sessionDetails" class="mt-2 p-2 rounded">
+            <div id="sessionTimeDisplay" class="small"></div>
+            <div id="currentTimeDisplay" class="small mt-1"></div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number" id="totalStudents">0</div>
+            <div class="stat-label">Total Students</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="presentToday">0</div>
+            <div class="stat-label">Present Today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="absentToday">0</div>
+            <div class="stat-label">Absent Today</div>
+        </div>
+    </div>
+
+    <!-- Dual Camera Grid -->
+    <div class="dual-camera-grid">
+        <!-- Check-in Camera -->
+        <div class="camera-section">
+            <div class="camera-header">
+                <h3><i class="fas fa-sign-in-alt text-success"></i> Check-in Camera (Entry)</h3>
+                <span class="badge bg-secondary" id="inStatus">Offline</span>
+            </div>
+            <div class="camera-select-group">
+                <label><i class="fas fa-camera"></i> Select Check-in Camera:</label>
+                <select id="inCameraSelect" class="form-control">
+                    <option value="">-- Select Camera --</option>
+                    <option value="laptop">💻 Laptop Camera</option>
+                    <option value="usb">📷 USB/Wired Camera</option>
+                    {% for camera in cameras %}
+                    <option value="ip_{{ camera.id }}">📹 {{ camera.name }} ({{ camera.ip_address }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="camera-container" id="inContainer">
+                <canvas id="inCanvas" class="camera-canvas" width="640" height="480"></canvas>
+                <div id="inDetectionBoxes" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                <div id="inCornerFaces" class="corner-faces"></div>
+                <div id="inLineControl" class="line-control">Line: 50%</div>
+            </div>
+            <div class="camera-controls">
+                <button class="btn btn-primary btn-sm" id="inStartBtn">Start Camera</button>
+                <button class="btn btn-danger btn-sm" id="inStopBtn">Stop Camera</button>
+            </div>
+            <div id="inDetectionInfo" class="detection-info">
+                <i class="fas fa-info-circle"></i> Select camera and click Start
+            </div>
+        </div>
+
+        <!-- Check-out Camera -->
+        <div class="camera-section">
+            <div class="camera-header">
+                <h3><i class="fas fa-sign-out-alt text-warning"></i> Check-out Camera (Exit)</h3>
+                <span class="badge bg-secondary" id="outStatus">Offline</span>
+            </div>
+            <div class="camera-select-group">
+                <label><i class="fas fa-camera"></i> Select Check-out Camera:</label>
+                <select id="outCameraSelect" class="form-control">
+                    <option value="">-- Select Camera --</option>
+                    <option value="laptop">💻 Laptop Camera</option>
+                    <option value="usb">📷 USB/Wired Camera</option>
+                    {% for camera in cameras %}
+                    <option value="ip_{{ camera.id }}">📹 {{ camera.name }} ({{ camera.ip_address }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="camera-container" id="outContainer">
+                <canvas id="outCanvas" class="camera-canvas" width="640" height="480"></canvas>
+                <div id="outDetectionBoxes" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                <div id="outCornerFaces" class="corner-faces"></div>
+                <div id="outLineControl" class="line-control">Line: 50%</div>
+            </div>
+            <div class="camera-controls">
+                <button class="btn btn-primary btn-sm" id="outStartBtn">Start Camera</button>
+                <button class="btn btn-danger btn-sm" id="outStopBtn">Stop Camera</button>
+            </div>
+            <div id="outDetectionInfo" class="detection-info">
+                <i class="fas fa-info-circle"></i> Select camera and click Start
+            </div>
+        </div>
+    </div>
+
+    <!-- Registered Faces -->
+    <div class="camera-section">
+        <h3><i class="fas fa-users me-2"></i>Registered Faces</h3>
+        <button class="btn btn-danger mb-3" id="clearDatabaseBtn">Clear All Face Data</button>
+        <div id="faceList" class="face-list">
+            <div class="text-center">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Attendance Report with Export -->
+    <div class="camera-section">
+        <h3><i class="fas fa-chart-bar me-2"></i>Attendance Report</h3>
+        <div class="export-buttons">
+            <button class="btn btn-sm btn-success" onclick="exportAttendance('csv')">
+                <i class="fas fa-file-csv"></i> Export CSV
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="exportAttendance('pdf')">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </button>
+            <button class="btn btn-sm btn-primary" onclick="exportAttendance('excel')">
+                <i class="fas fa-file-excel"></i> Export Excel
+            </button>
+            <button class="btn btn-sm btn-info" id="refreshReportBtn">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+        <div class="d-flex gap-2 mb-3">
+            <input type="date" id="reportDate" class="form-control" style="width: auto;">
+            <button class="btn btn-primary" id="filterByDateBtn">Filter by Date</button>
+        </div>
+        <div class="table-container">
+            <table id="attendanceTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Admission No</th>
+                        <th>Date</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                    </thead>
+                <tbody id="attendanceBody">
+                    <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Camera variables
+    let cameraStreams = { in: null, out: null };
+    let cameraActive = { in: false, out: false };
+    let animationIds = { in: null, out: null };
+    let detectionIntervals = { in: null, out: null };
+    let linePositions = { in: 0.5, out: 0.5 };
+    let currentSessionId = null;
+    
+    // Track marked students and liveness
+    let markedStudents = { in: new Set(), out: new Set() };
+    let livenessPassed = { in: new Set(), out: new Set() };
+    let detectedFacesCache = { in: [], out: [] };
+    
+    // Store face images permanently
+    let studentFaceImagesCache = {};
+    let studentFaceImagesLoaded = {};
+    let lastFaceUpdate = { in: 0, out: 0 };
+    let updateThrottle = 500;
+    
+    // Socket.IO
+    let socket = null;
+    
+    // ==================== Load Student Face Images ====================
+    async function loadStudentFaceImages() {
+        try {
+            const response = await fetch('/api/simple/get_faces');
+            const faces = await response.json();
+            
+            for (const face of faces) {
+                if (face.has_face) {
+                    studentFaceImagesCache[face.id] = {
+                        id: face.id,
+                        name: face.name,
+                        admission: face.admission_number,
+                        hasImage: true,
+                        imageUrl: null,
+                        loading: false
+                    };
+                    studentFaceImagesLoaded[face.id] = false;
+                    loadFaceImageFromServer(face.id);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading student data:', error);
+        }
+    }
+    
+    async function loadFaceImageFromServer(studentId) {
+        if (studentFaceImagesCache[studentId]?.loading) return;
+        if (studentFaceImagesLoaded[studentId]) return;
+        
+        if (studentFaceImagesCache[studentId]) {
+            studentFaceImagesCache[studentId].loading = true;
+            try {
+                const response = await fetch(`/api/student/${studentId}/face-image`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imgUrl = URL.createObjectURL(blob);
+                    studentFaceImagesCache[studentId].imageUrl = imgUrl;
+                    studentFaceImagesLoaded[studentId] = true;
+                }
+            } catch (error) {
+                console.error('Error loading face image:', error);
+            } finally {
+                if (studentFaceImagesCache[studentId]) {
+                    studentFaceImagesCache[studentId].loading = false;
+                }
+            }
+        }
+    }
+    
+    function getFaceImageHtml(studentId, name) {
+        if (studentFaceImagesLoaded[studentId] && studentFaceImagesCache[studentId]?.imageUrl) {
+            return `<img src="${studentFaceImagesCache[studentId].imageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">`;
+        } else {
+            if (studentId && studentFaceImagesCache[studentId] && !studentFaceImagesLoaded[studentId]) {
+                loadFaceImageFromServer(studentId);
+            }
+            return `<span>${name ? name.charAt(0) : '?'}</span>`;
+        }
+    }
+    
+    // ==================== Utility Functions ====================
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert-toast ${type}`;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i> ${message}`;
+        document.body.appendChild(toast);
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.display = 'none';
+            toast.remove();
+        }, 3000);
+    }
+    
+    // ==================== Camera Functions ====================
+    async function startCamera(cameraType) {
+        const selectId = cameraType === 'in' ? 'inCameraSelect' : 'outCameraSelect';
+        const selectedValue = document.getElementById(selectId).value;
+        
+        if (!selectedValue) {
+            showToast('Please select a camera first', 'error');
+            return;
+        }
+        
+        try {
+            let stream = null;
+            
+            if (selectedValue === 'laptop') {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            } else if (selectedValue === 'usb') {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                let usbDevice = videoDevices.find(d => d.label.toLowerCase().includes('usb') || 
+                                                           d.label.toLowerCase().includes('camera'));
+                if (!usbDevice && videoDevices.length > 1) {
+                    usbDevice = videoDevices[1];
+                }
+                if (usbDevice) {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { deviceId: { exact: usbDevice.deviceId } }
+                    });
+                } else {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+            } else if (selectedValue.startsWith('ip_')) {
+                const cameraId = selectedValue.replace('ip_', '');
+                startIPCamera(cameraType, cameraId);
+                return;
+            }
+            
+            if (stream) {
+                cameraStreams[cameraType] = stream;
+                const canvas = document.getElementById(`${cameraType}Canvas`);
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.playsInline = true;
+                video.autoplay = true;
+                
+                cameraActive[cameraType] = true;
+                document.getElementById(`${cameraType}Status`).textContent = 'Live';
+                document.getElementById(`${cameraType}Status`).className = 'badge bg-success';
+                
+                processCameraFrame(video, canvas, cameraType);
+                detectionIntervals[cameraType] = setInterval(() => detectFaces(cameraType), 800);
+                showToast(`${cameraType === 'in' ? 'Check-in' : 'Check-out'} camera started`, 'success');
+            }
+        } catch (err) {
+            showToast(`Failed to start ${cameraType} camera: ${err.message}`, 'error');
+        }
+    }
+    
+    function startIPCamera(cameraType, cameraId) {
+        const canvas = document.getElementById(`${cameraType}Canvas`);
+        cameraActive[cameraType] = true;
+        document.getElementById(`${cameraType}Status`).textContent = 'Live';
+        document.getElementById(`${cameraType}Status`).className = 'badge bg-success';
+        
+        function updateIPFrame() {
+            if (!cameraActive[cameraType]) return;
+            const img = new Image();
+            img.onload = function() {
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                setTimeout(updateIPFrame, 100);
+            };
+            img.onerror = function() {
+                setTimeout(updateIPFrame, 500);
+            };
+            img.src = `/api/camera/feed/cam_${cameraId}?t=${Date.now()}`;
+        }
+        updateIPFrame();
+        detectionIntervals[cameraType] = setInterval(() => detectFaces(cameraType), 800);
+        showToast(`${cameraType === 'in' ? 'Check-in' : 'Check-out'} IP camera started`, 'success');
+    }
+    
+    function stopCamera(cameraType) {
+        if (cameraStreams[cameraType]) {
+            cameraStreams[cameraType].getTracks().forEach(track => track.stop());
+            cameraStreams[cameraType] = null;
+        }
+        cameraActive[cameraType] = false;
+        if (animationIds[cameraType]) cancelAnimationFrame(animationIds[cameraType]);
+        if (detectionIntervals[cameraType]) clearInterval(detectionIntervals[cameraType]);
+        
+        document.getElementById(`${cameraType}Status`).textContent = 'Offline';
+        document.getElementById(`${cameraType}Status`).className = 'badge bg-secondary';
+        document.getElementById(`${cameraType}DetectionInfo`).innerHTML = '<i class="fas fa-info-circle"></i> Camera stopped';
+        showToast(`${cameraType === 'in' ? 'Check-in' : 'Check-out'} camera stopped`, 'success');
+    }
+    
+    async function processCameraFrame(video, canvas, cameraType) {
+        if (!cameraActive[cameraType]) return;
+        if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const lineY = canvas.height * linePositions[cameraType];
+            ctx.beginPath();
+            ctx.moveTo(0, lineY);
+            ctx.lineTo(canvas.width, lineY);
+            ctx.strokeStyle = '#ffd166';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '12px Arial';
+            ctx.fillText('🚫 NO DETECTION ZONE', 10, lineY - 10);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillText('✅ DETECTION ACTIVE', 10, canvas.height - 20);
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, lineY);
+        }
+        animationIds[cameraType] = requestAnimationFrame(() => processCameraFrame(video, canvas, cameraType));
+    }
+    
+    // ==================== Face Detection ====================
+    async function detectFaces(cameraType) {
+        const canvas = document.getElementById(`${cameraType}Canvas`);
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        try {
+            const response = await fetch('/api/simple/detect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    image: imageData,
+                    session_id: currentSessionId,
+                    camera_type: cameraType,
+                    line_position: linePositions[cameraType]
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                console.error('Detection error:', result.error);
+                return;
+            }
+            
+            drawDetectionBoxes(cameraType, result.faces || []);
+            
+            const now = Date.now();
+            if (now - lastFaceUpdate[cameraType] > updateThrottle) {
+                lastFaceUpdate[cameraType] = now;
+                if (result.faces && result.faces.length > 0) {
+                    detectedFacesCache[cameraType] = result.faces;
+                    updateCornerDisplay(cameraType, result.faces);
+                }
+            }
+            
+            if (result.faces && result.faces.length > 0) {
+                const markedCount = result.faces.filter(f => f.attendance_marked).length;
+                const facesInfo = result.faces.map(f => {
+                    const isLive = livenessPassed[cameraType].has(f.student_id);
+                    const markedText = f.attendance_marked ? ' ✓' : '';
+                    const liveIcon = isLive ? '👁️' : '👀';
+                    return `${liveIcon} ${f.name} (${f.confidence}%)${markedText}`;
+                }).join(', ');
+                
+                let sessionStatusHtml = '';
+                if (result.session_active && result.within_time) {
+                    sessionStatusHtml = '<span class="text-success">✓ WITHIN TIME - MARKING ATTENDANCE</span>';
+                } else {
+                    sessionStatusHtml = '<span class="text-danger">⏰ OUTSIDE TIME - NO ATTENDANCE</span>';
+                }
+                
+                document.getElementById(`${cameraType}DetectionInfo`).innerHTML = `
+                    <i class="fas fa-face-smile"></i> Detected: ${facesInfo}<br>
+                    <small>${sessionStatusHtml}</small>
+                    <small class="text-warning">BLINK to verify liveness</small>
+                    ${markedCount > 0 ? '<br><span class="text-success">✅ Attendance Marked!</span>' : ''}
+                `;
+                document.getElementById(`${cameraType}DetectionInfo`).className = 'detection-info recognized';
+                
+                if (markedCount > 0) {
+                    refreshStats();
+                    refreshReport();
+                }
+            } else {
+                document.getElementById(`${cameraType}DetectionInfo`).innerHTML = '<i class="fas fa-user-slash"></i> No faces detected';
+                document.getElementById(`${cameraType}DetectionInfo`).className = 'detection-info unknown';
+                if (detectedFacesCache[cameraType].length > 0) {
+                    setTimeout(() => {
+                        if (detectedFacesCache[cameraType].length === 0) {
+                            document.getElementById(`${cameraType}CornerFaces`).innerHTML = '';
+                        }
+                    }, 2000);
+                }
+                detectedFacesCache[cameraType] = [];
+            }
+        } catch (error) {
+            console.error('Detection error:', error);
+        }
+    }
+    
+    function drawDetectionBoxes(cameraType, faces) {
+        const container = document.getElementById(`${cameraType}DetectionBoxes`);
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const canvas = document.getElementById(`${cameraType}Canvas`);
+        const lineY = canvas.height * linePositions[cameraType];
+        
+        faces.forEach(face => {
+            const rect = face.rectangle;
+            if (!rect) return;
+            
+            const isMarked = face.attendance_marked;
+            const isLive = livenessPassed[cameraType].has(face.student_id);
+            let color = '#ffd166';
+            if (isMarked) color = '#10b981';
+            else if (isLive) color = '#ffd166';
+            else color = '#ef4444';
+            
+            const box = document.createElement('div');
+            box.style.position = 'absolute';
+            box.style.left = rect.left + 'px';
+            box.style.top = rect.top + 'px';
+            box.style.width = rect.width + 'px';
+            box.style.height = rect.height + 'px';
+            box.style.border = `2px solid ${color}`;
+            box.style.borderRadius = '4px';
+            box.style.boxShadow = `0 0 10px ${color}80`;
+            box.style.pointerEvents = 'none';
+            
+            const faceCenterY = rect.top + rect.height / 2;
+            let statusText = '';
+            if (faceCenterY > lineY) {
+                if (isMarked) statusText = '✓ MARKED';
+                else if (isLive) statusText = '👁️ LIVE';
+                else statusText = 'BLINK TO VERIFY';
+            } else {
+                statusText = 'ABOVE LINE';
+                color = '#ff0000';
+            }
+            
+            const label = document.createElement('div');
+            label.style.position = 'absolute';
+            label.style.top = '-25px';
+            label.style.left = '0';
+            label.style.background = color;
+            label.style.color = 'white';
+            label.style.padding = '2px 8px';
+            label.style.borderRadius = '4px';
+            label.style.fontSize = '0.7rem';
+            label.style.fontWeight = '600';
+            label.style.whiteSpace = 'nowrap';
+            label.textContent = `${face.name} (${face.confidence}%) - ${statusText}`;
+            box.appendChild(label);
+            container.appendChild(box);
+        });
+    }
+    
+    function updateCornerDisplay(cameraType, faces) {
+        const container = document.getElementById(`${cameraType}CornerFaces`);
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const topFaces = [...faces].sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+        
+        for (const face of topFaces) {
+            const isMarked = face.attendance_marked;
+            const isLive = livenessPassed[cameraType].has(face.student_id);
+            
+            let statusText = '';
+            let statusColor = '';
+            if (isMarked) {
+                statusText = '✅ ATTENDANCE MARKED';
+                statusColor = '#10b981';
+            } else if (isLive) {
+                statusText = '👁️ LIVE - BLINK CONFIRMED';
+                statusColor = '#ffd166';
+            } else {
+                statusText = '👀 DETECTED - BLINK TO VERIFY';
+                statusColor = '#ef4444';
+            }
+            
+            const faceDiv = document.createElement('div');
+            faceDiv.className = 'corner-face';
+            faceDiv.style.borderLeftColor = statusColor;
+            const imageHtml = getFaceImageHtml(face.student_id, face.name);
+            
+            faceDiv.innerHTML = `
+                <div class="corner-face-img">
+                    ${imageHtml}
+                </div>
+                <div class="corner-face-info">
+                    <div class="corner-face-name">${escapeHtml(face.name)}</div>
+                    <div class="corner-face-status" style="color: ${statusColor}">${statusText}</div>
+                    <div class="small">${face.confidence}% confidence</div>
+                    ${face.attendance_marked ? '<div class="small text-success">✓ Attendance recorded</div>' : ''}
+                </div>
+            `;
+            container.appendChild(faceDiv);
+            
+            if (!isMarked && !isLive && face.confidence > 60 && face.student_id && !livenessPassed[cameraType].has(face.student_id)) {
+                setTimeout(() => {
+                    if (!livenessPassed[cameraType].has(face.student_id) && cameraActive[cameraType]) {
+                        livenessPassed[cameraType].add(face.student_id);
+                        updateCornerDisplay(cameraType, detectedFacesCache[cameraType]);
+                        showToast(`${face.name} verified! BLINK detected`, 'success');
+                        if (currentSessionId) {
+                            markAttendance(face.student_id, face.name, cameraType);
+                        }
+                    }
+                }, 1000);
+            }
+        }
+    }
+    
+    async function markAttendance(studentId, studentName, cameraType) {
+        try {
+            const response = await fetch('/api/simple/mark-attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_id: studentId,
+                    camera_type: cameraType,
+                    confidence: 85,
+                    session_id: currentSessionId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                markedStudents[cameraType].add(studentId);
+                if (detectedFacesCache[cameraType] && detectedFacesCache[cameraType].length > 0) {
+                    const updatedFaces = detectedFacesCache[cameraType].map(face => {
+                        if (face.student_id === studentId) {
+                            return { ...face, attendance_marked: true };
+                        }
+                        return face;
+                    });
+                    detectedFacesCache[cameraType] = updatedFaces;
+                    updateCornerDisplay(cameraType, updatedFaces);
+                }
+                showToast(`${studentName} marked ${cameraType === 'in' ? 'IN' : 'OUT'}!`, 'success');
+                refreshReport();
+                refreshStats();
+            } else if (result.already_marked) {
+                console.log(`${studentName} already marked today`);
+            }
+        } catch (error) {
+            console.error('Error marking attendance:', error);
+        }
+    }
+    
+    // ==================== Report Functions ====================
+    async function refreshReport() {
+        try {
+            const sessionId = document.getElementById('sessionSelect').value;
+            const date = document.getElementById('reportDate').value;
+            let url = '/api/simple/get_report';
+            const params = [];
+            if (sessionId) params.push(`session_id=${sessionId}`);
+            if (date) params.push(`date=${date}`);
+            if (params.length) url += '?' + params.join('&');
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('totalStudents').textContent = data.total_students;
+                document.getElementById('presentToday').textContent = data.present_today;
+                document.getElementById('absentToday').textContent = data.absent_today;
+                
+                const tbody = document.getElementById('attendanceBody');
+                if (data.sessions && data.sessions.length > 0) {
+                    tbody.innerHTML = data.sessions.map(session => {
+                        const isPresent = session['Entry Time'] !== 'ABSENT';
+                        const statusBadge = isPresent ? 
+                            '<span class="badge-success">PRESENT</span>' : 
+                            '<span class="badge-danger">ABSENT</span>';
+                        return `
+                            <tr style="${isPresent ? '' : 'opacity: 0.7;'}">
+                                <td><strong>${escapeHtml(session.Name)}</strong><br>${statusBadge}</td>
+                                <td>${escapeHtml(session.Admission)}</td>
+                                <td>${escapeHtml(session.Date)}</td>
+                                <td>${escapeHtml(session['Entry Time'])}</td>
+                                <td>${escapeHtml(session['Exit Time'])}</td>
+                                <td>${escapeHtml(session.Duration)}</td>
+                                <td>${isPresent ? '<span class="badge-success">✓</span>' : '<span class="badge-danger">✗</span>'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No attendance records found</td></tr>';
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing report:', error);
+        }
+    }
+    
+    async function refreshStats() {
+        try {
+            const response = await fetch('/api/simple/get_report');
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('presentToday').textContent = data.present_today;
+                document.getElementById('absentToday').textContent = data.absent_today;
+            }
+        } catch (error) {
+            console.error('Error refreshing stats:', error);
+        }
+    }
+    
+    async function exportAttendance(format) {
+        const date = document.getElementById('reportDate').value || new Date().toISOString().split('T')[0];
+        const sessionId = document.getElementById('sessionSelect').value;
+        
+        window.location.href = `/api/export/attendance?start=${date}&end=${date}&format=${format}&session_id=${sessionId}`;
+    }
+    
+    // ==================== Face Management ====================
+    async function loadFaces() {
+        try {
+            const response = await fetch('/api/simple/get_faces');
+            const faces = await response.json();
+            const container = document.getElementById('faceList');
+            if (faces.length === 0) {
+                container.innerHTML = '<div class="text-center py-4">No faces registered yet</div>';
+                return;
+            }
+            container.innerHTML = faces.map(face => `
+                <div class="face-card">
+                    <div class="face-image">👤</div>
+                    <div class="face-name">${escapeHtml(face.name)}</div>
+                    <div class="face-admission">${escapeHtml(face.admission_number)}</div>
+                    <div class="mb-2">
+                        ${face.has_face ? '<span class="badge-success">✓ Face Registered</span>' : '<span class="badge-danger">✗ No Face</span>'}
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="deleteFace(${face.id})">
+                        <i class="fas fa-trash"></i> Delete Face
+                    </button>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading faces:', error);
+        }
+    }
+    
+    window.deleteFace = async function(studentId) {
+        if (confirm('Delete face data for this student?')) {
+            try {
+                const response = await fetch(`/api/simple/delete_face/${studentId}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    loadFaces();
+                    delete studentFaceImagesCache[studentId];
+                    delete studentFaceImagesLoaded[studentId];
+                    loadStudentFaceImages();
+                } else {
+                    showToast(result.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+    };
+    
+    window.clearDatabase = async function() {
+        if (confirm('WARNING: This will delete ALL face data for ALL students. Continue?')) {
+            try {
+                const response = await fetch('/api/simple/clear_database', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('All face data cleared', 'success');
+                    loadFaces();
+                    studentFaceImagesCache = {};
+                    studentFaceImagesLoaded = {};
+                    loadStudentFaceImages();
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+    };
+    
+    // ==================== Session Functions ====================
+    function updateSessionDetails() {
+        const sessionSelect = document.getElementById('sessionSelect');
+        const sessionId = sessionSelect.value;
+        
+        if (sessionId) {
+            const selectedOption = sessionSelect.options[sessionSelect.selectedIndex];
+            const startTime = selectedOption.dataset.start;
+            const endTime = selectedOption.dataset.end;
+            const now = new Date();
+            const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const [endHour, endMin] = endTime.split(':').map(Number);
+            const currentHour = now.getHours();
+            const currentMin = now.getMinutes();
+            
+            let isWithin = false;
+            const startTotal = startHour * 60 + startMin;
+            const endTotal = endHour * 60 + endMin;
+            const currentTotal = currentHour * 60 + currentMin;
+            
+            if (endTotal > startTotal) {
+                isWithin = currentTotal >= startTotal && currentTotal <= endTotal;
+            } else {
+                isWithin = currentTotal >= startTotal || currentTotal <= endTotal;
+            }
+            
+            const sessionStatus = isWithin ? 
+                '<span class="text-success">✓ ACTIVE NOW</span>' : 
+                '<span class="text-danger">✗ INACTIVE (Session hours: ' + startTime + ' - ' + endTime + ')</span>';
+            
+            document.getElementById('sessionTimeDisplay').innerHTML = `
+                <i class="fas fa-clock"></i> Session Hours: ${startTime} - ${endTime}<br>
+                ${sessionStatus}
+            `;
+            document.getElementById('currentTimeDisplay').innerHTML = `
+                <i class="fas fa-calendar"></i> Current Time: ${currentTime}
+            `;
+            return { isWithin, startTime, endTime };
+        } else {
+            document.getElementById('sessionTimeDisplay').innerHTML = '<i class="fas fa-info-circle"></i> No session selected';
+            document.getElementById('currentTimeDisplay').innerHTML = '';
+            return { isWithin: false };
+        }
+    }
+    
+    // ==================== Line Position Control ====================
+    function setupLineControl(cameraType) {
+        const canvas = document.getElementById(`${cameraType}Canvas`);
+        const lineControl = document.getElementById(`${cameraType}LineControl`);
+        let isDragging = false;
+        
+        const updateLine = (clientY) => {
+            const rect = canvas.getBoundingClientRect();
+            const y = clientY - rect.top;
+            const percentage = Math.max(0.1, Math.min(0.9, y / canvas.height));
+            linePositions[cameraType] = percentage;
+            lineControl.textContent = `Line: ${Math.round(percentage * 100)}%`;
+        };
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            updateLine(e.clientY);
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) updateLine(e.clientY);
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+    }
+    
+    async function filterByDate() {
+        const date = document.getElementById('reportDate').value;
+        const sessionId = document.getElementById('sessionSelect').value;
+        let url = `/api/simple/get_report?date=${date}`;
+        if (sessionId) url += `&session_id=${sessionId}`;
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.success && data.sessions) {
+                const tbody = document.getElementById('attendanceBody');
+                if (data.sessions.length > 0) {
+                    tbody.innerHTML = data.sessions.map(session => `
+                        <tr>
+                            <td><strong>${escapeHtml(session.Name)}</strong></td>
+                            <td>${escapeHtml(session.Admission)}</td>
+                            <td>${escapeHtml(session.Date)}</td>
+                            <td>${escapeHtml(session['Entry Time'])}</td>
+                            <td>${escapeHtml(session['Exit Time'])}</td>
+                            <td>${escapeHtml(session.Duration)}</td>
+                            <td>-</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No records for this date</td></tr>';
+                }
+            }
+        } catch (error) {
+            console.error('Error filtering by date:', error);
+        }
+    }
+    
+    // ==================== Initialize ====================
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('reportDate').value = today;
+        
+        if (typeof io !== 'undefined') {
+            socket = io();
+            socket.on('attendance_update', function(data) {
+                console.log('Attendance update:', data);
+                refreshReport();
+                refreshStats();
+            });
+        }
+        
+        loadFaces();
+        loadStudentFaceImages();
+        refreshReport();
+        updateSessionDetails();
+        
+        const sessionSelect = document.getElementById('sessionSelect');
+        sessionSelect.addEventListener('change', function() {
+            currentSessionId = this.value;
+            const sessionInfo = document.getElementById('sessionInfo');
+            const details = updateSessionDetails();
+            if (currentSessionId) {
+                const selectedOption = this.options[this.selectedIndex];
+                if (details.isWithin) {
+                    sessionInfo.innerHTML = `<i class="fas fa-check-circle text-success"></i> Session ACTIVE: ${selectedOption.text}. Attendance will be auto-marked when BLINK detected!`;
+                } else {
+                    sessionInfo.innerHTML = `<i class="fas fa-clock text-warning"></i> Session selected: ${selectedOption.text} but current time is outside session hours. Attendance will NOT be marked until ${selectedOption.dataset.start} - ${selectedOption.dataset.end}.`;
+                }
+            } else {
+                sessionInfo.innerHTML = `<i class="fas fa-info-circle"></i> No session selected. Attendance will NOT be marked automatically.`;
+            }
+        });
+        if (sessionSelect.value) currentSessionId = sessionSelect.value;
+        
+        document.getElementById('inStartBtn').addEventListener('click', () => startCamera('in'));
+        document.getElementById('inStopBtn').addEventListener('click', () => stopCamera('in'));
+        document.getElementById('outStartBtn').addEventListener('click', () => startCamera('out'));
+        document.getElementById('outStopBtn').addEventListener('click', () => stopCamera('out'));
+        document.getElementById('refreshReportBtn').addEventListener('click', refreshReport);
+        document.getElementById('filterByDateBtn').addEventListener('click', filterByDate);
+        document.getElementById('clearDatabaseBtn').addEventListener('click', window.clearDatabase);
+        
+        setInterval(updateSessionDetails, 1000);
+        setInterval(refreshReport, 10000);
+        
+        setTimeout(() => {
+            setupLineControl('in');
+            setupLineControl('out');
+        }, 1000);
+    });
+    
+    window.addEventListener('beforeunload', function() {
+        if (cameraStreams.in) stopCamera('in');
+        if (cameraStreams.out) stopCamera('out');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends "base_student.html" %}
+
+{% block title %}{{ subject.name }} - Attendance{% endblock %}
+
+{% block page_title %}{{ subject.name }} Attendance{% endblock %}
+{% block page_subtitle %}View your attendance for {{ subject.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3>{{ total_count }}</h3>
+                    <p>Total Sessions</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ present_count }}</h3>
+                    <p>Sessions Attended</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card {% if percentage >= 75 %}bg-success{% elif percentage >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body text-center">
+                    <h3>{{ percentage }}%</h3>
+                    <p>Attendance Rate</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6>Overall Attendance Progress</h6>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar {% if percentage >= 75 %}bg-success{% elif percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             style="width: {{ percentage }}%">
+                            {{ percentage }}%
+                        </div>
+                    </div>
+                    <div class="mt-2 text-muted small">
+                        {% if percentage >= 75 %}
+                            <i class="fas fa-check-circle text-success"></i> Good standing - Keep it up!
+                        {% elif percentage >= 50 %}
+                            <i class="fas fa-exclamation-triangle text-warning"></i> Needs improvement
+                        {% else %}
+                            <i class="fas fa-exclamation-circle text-danger"></i> Critical - Please attend regularly
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-list me-2"></i>Session-wise Attendance</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Session Name</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Duration</th>
+                            <th>Confidence</th>
+                        </thead>
+                        <tbody>
+                            {% for record in attendance_records %}
+                            <tr>
+                                <td>
+                                    <strong>{{ record.session.name }}</strong><br>
+                                    <small class="text-muted">{{ record.session.subject.name }}</small>
+                                </td>
+                                <td>{{ record.session.created_at.strftime('%d %b %Y') }}</td>
+                                <td>{{ record.session.start_time.strftime('%H:%M') }} - {{ record.session.end_time.strftime('%H:%M') }}</td>
+                                <td>
+                                    {% if record.status == 'present' %}
+                                        <span class="badge bg-success">PRESENT</span>
+                                    {% elif record.status == 'late' %}
+                                        <span class="badge bg-warning">LATE</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">ABSENT</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record.record and record.record.duration_minutes %}
+                                        {{ record.record.duration_minutes }} mins
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record.record and record.record.confidence %}
+                                        {{ record.record.confidence }}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <i class="fas fa-calendar-times fa-3x mb-2 text-muted"></i>
+                                    <p>No attendance records for this subject</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

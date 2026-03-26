@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_DB=attendance_system
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - attendance-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - attendance-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/attendance_system
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - FACE_API_KEY=${FACE_API_KEY}
+      - FACE_API_SECRET=${FACE_API_SECRET}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - INSTITUTE_NAME=${INSTITUTE_NAME}
+      - FLASK_ENV=production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./recordings:/app/recordings
+      - ./static/uploads:/app/static/uploads
+      - ./logs:/app/logs
+    networks:
+      - attendance-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A celery_worker worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/attendance_system
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - FACE_API_KEY=${FACE_API_KEY}
+      - FACE_API_SECRET=${FACE_API_SECRET}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./recordings:/app/recordings
+      - ./logs:/app/logs
+    networks:
+      - attendance-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/app/static:ro
+      - ./recordings:/app/recordings:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - attendance-network
+    restart: unless-stopped
+
+  pgbackup:
+    image: prodrigestivill/postgres-backup-local:13-alpine
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=attendance_system
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - BACKUP_DIR=/backups
+      - BACKUP_SUFFIX=.sql.gz
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_KEEP_WEEKS=4
+      - BACKUP_KEEP_MONTHS=6
+      - HEALTHCHECK_PORT=8080
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      - db
+    networks:
+      - attendance-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  attendance-network:
+    driver: bridge

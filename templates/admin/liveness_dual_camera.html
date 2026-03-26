@@ -1,0 +1,365 @@
+<!-- templates/admin/liveness_dual_camera.html -->
+{% extends "base.html" %}
+
+{% block title %}Liveness Dual Camera Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .liveness-container {
+        padding: 20px;
+    }
+    
+    .status-panel {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .status-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        text-align: center;
+    }
+    
+    .status-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 5px;
+    }
+    
+    .status-label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+    
+    .camera-selector {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 30px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .control-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin: 30px 0;
+    }
+    
+    .liveness-badge {
+        background: linear-gradient(135deg, #06d6a0, #059669);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .liveness-badge i {
+        font-size: 0.9rem;
+    }
+    
+    .info-box {
+        background: var(--bg-primary);
+        border-radius: var(--border-radius);
+        padding: 15px;
+        margin: 20px 0;
+        border-left: 4px solid var(--info);
+    }
+    
+    .info-box h5 {
+        margin: 0 0 10px 0;
+        color: var(--text-primary);
+    }
+    
+    .info-box ul {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--text-secondary);
+    }
+    
+    .info-box li {
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="liveness-container fade-in">
+    <h1><i class="fas fa-eye me-2"></i>Liveness Dual Camera Attendance</h1>
+    <p class="text-muted">Advanced liveness detection prevents spoofing with photos or videos</p>
+
+    <!-- Session Info -->
+    {% if active_session %}
+    <div class="alert alert-info">
+        <i class="fas fa-clock me-2"></i>
+        <strong>Active Session:</strong> {{ active_session.name }}
+        ({{ active_session.start_time.strftime('%H:%M') }} - {{ active_session.end_time.strftime('%H:%M') }})
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        No active session found. Please create an attendance session first.
+        <a href="{{ url_for('attendance_session') }}" class="alert-link">Create Session</a>
+    </div>
+    {% endif %}
+
+    <!-- Status Panel -->
+    <div class="status-panel">
+        <div class="status-card">
+            <div class="status-value" id="presentCount">0</div>
+            <div class="status-label">Present Today</div>
+        </div>
+        <div class="status-card">
+            <div class="status-value" id="inClassCount">0</div>
+            <div class="status-label">Currently In Class</div>
+        </div>
+        <div class="status-card">
+            <div class="status-value" id="livenessPassed">0</div>
+            <div class="status-label">Liveness Verified</div>
+        </div>
+        <div class="status-card">
+            <div class="status-value" id="sessionTimer">00:00</div>
+            <div class="status-label">Session Time Left</div>
+        </div>
+    </div>
+
+    <!-- Info Box -->
+    <div class="info-box">
+        <h5><i class="fas fa-info-circle me-2"></i>How Liveness Detection Works</h5>
+        <ul>
+            <li><strong>Blink Detection:</strong> Users must blink naturally to prove they're real</li>
+            <li><strong>Motion Analysis:</strong> Detects natural head movements</li>
+            <li><strong>Texture Analysis:</strong> Prevents photo and video spoofing</li>
+            <li><strong>Dual Camera:</strong> Entry camera records check-in, Exit camera records check-out</li>
+        </ul>
+    </div>
+
+    <!-- Camera Selection -->
+    <div class="camera-selector">
+        <h5><i class="fas fa-camera me-2"></i>Select Cameras</h5>
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Entry Camera (Check-in)</label>
+                <select class="form-control" id="entryCamera">
+                    <option value="">-- Select Entry Camera --</option>
+                    {% for camera in cameras %}
+                        {% if camera.direction == 'in' or camera.direction == 'both' %}
+                        <option value="{{ camera.id }}">📹 {{ camera.name }} ({{ camera.ip }})</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <small class="text-muted">Students will be marked IN when they cross the line</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Exit Camera (Check-out)</label>
+                <select class="form-control" id="exitCamera">
+                    <option value="">-- Select Exit Camera --</option>
+                    {% for camera in cameras %}
+                        {% if camera.direction == 'out' or camera.direction == 'both' %}
+                        <option value="{{ camera.id }}">📹 {{ camera.name }} ({{ camera.ip }})</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <small class="text-muted">Students will be marked OUT when they cross the line</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="control-buttons">
+        <button class="btn btn-success btn-lg" onclick="startLiveness()" id="startBtn">
+            <i class="fas fa-play me-2"></i>Start Liveness Detection
+        </button>
+        <button class="btn btn-danger btn-lg" onclick="stopLiveness()" id="stopBtn" style="display: none;">
+            <i class="fas fa-stop me-2"></i>Stop Detection
+        </button>
+        <button class="btn btn-info btn-lg" onclick="checkStatus()">
+            <i class="fas fa-sync-alt me-2"></i>Refresh Status
+        </button>
+    </div>
+
+    <!-- Instructions -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="fas fa-lightbulb me-2"></i>Instructions</h5>
+        </div>
+        <div class="card-body">
+            <ul class="list-unstyled">
+                <li class="mb-2"><i class="fas fa-1-circle text-primary me-2"></i> Stand in front of the camera below the yellow line</li>
+                <li class="mb-2"><i class="fas fa-2-circle text-primary me-2"></i> BLINK naturally to prove you're real (not a photo)</li>
+                <li class="mb-2"><i class="fas fa-3-circle text-primary me-2"></i> Face will turn YELLOW when liveness is verified</li>
+                <li class="mb-2"><i class="fas fa-4-circle text-primary me-2"></i> Face will turn GREEN when attendance is marked</li>
+                <li class="mb-2"><i class="fas fa-5-circle text-primary me-2"></i> Use '+' and '-' keys to adjust detection line position</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Live Log (will be updated via WebSocket) -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="fas fa-history me-2"></i>Live Detection Log</h5>
+        </div>
+        <div class="card-body" style="max-height: 300px; overflow-y: auto;" id="detectionLog">
+            <div class="text-center text-muted py-3">
+                <i class="fas fa-eye-slash fa-2x mb-2"></i>
+                <p>Start detection to see live events</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let statusInterval = null;
+let activeSession = {% if active_session %}{{ active_session.id }}{% else %}null{% endif %};
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (activeSession) {
+        startSessionTimer();
+    }
+    checkStatus();
+});
+
+function startLiveness() {
+    const entryCamera = document.getElementById('entryCamera').value;
+    const exitCamera = document.getElementById('exitCamera').value;
+    
+    if (!entryCamera || !exitCamera) {
+        alert('Please select both entry and exit cameras');
+        return;
+    }
+    
+    if (!activeSession) {
+        alert('No active session found. Please create a session first.');
+        return;
+    }
+    
+    fetch('/api/liveness/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            entry_camera_id: entryCamera,
+            exit_camera_id: exitCamera,
+            session_id: activeSession
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            // Start polling for status
+            if (statusInterval) clearInterval(statusInterval);
+            statusInterval = setInterval(checkStatus, 2000);
+            
+            addToLog('✅ Liveness detection started', 'success');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error starting detection: ' + error);
+    });
+}
+
+function stopLiveness() {
+    fetch('/api/liveness/stop', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            
+            if (statusInterval) {
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+            
+            addToLog('🛑 Detection stopped', 'warning');
+        }
+    });
+}
+
+function checkStatus() {
+    fetch('/api/liveness/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.running) {
+                document.getElementById('presentCount').textContent = data.present_count || 0;
+                document.getElementById('inClassCount').textContent = data.in_class || 0;
+                document.getElementById('livenessPassed').textContent = data.liveness_passed || 0;
+            }
+        });
+}
+
+function startSessionTimer() {
+    if (!activeSession) return;
+    
+    const endTime = new Date();
+    const [hours, minutes] = "{{ active_session.end_time.strftime('%H:%M') }}".split(':');
+    endTime.setHours(parseInt(hours), parseInt(minutes), 0);
+    
+    setInterval(() => {
+        const now = new Date();
+        const diff = endTime - now;
+        
+        if (diff <= 0) {
+            document.getElementById('sessionTimer').textContent = '00:00';
+            return;
+        }
+        
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        document.getElementById('sessionTimer').textContent = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }, 1000);
+}
+
+function addToLog(message, type = 'info') {
+    const log = document.getElementById('detectionLog');
+    
+    if (log.children.length === 1 && log.children[0].classList.contains('text-center')) {
+        log.innerHTML = '';
+    }
+    
+    const entry = document.createElement('div');
+    entry.className = `alert alert-${type} mb-2`;
+    entry.innerHTML = `
+        <div class="d-flex justify-content-between">
+            <span>${message}</span>
+            <small>${new Date().toLocaleTimeString()}</small>
+        </div>
+    `;
+    
+    log.insertBefore(entry, log.firstChild);
+    
+    while (log.children.length > 20) {
+        log.removeChild(log.lastChild);
+    }
+}
+
+// Socket.IO for real-time updates
+const socket = io();
+
+socket.on('attendance_update', function(data) {
+    if (data.liveness_score) {
+        addToLog(`👁️ ${data.student_name} ${data.status} (Liveness: ${(data.liveness_score*100).toFixed(0)}%)`, 'success');
+        checkStatus();
+    }
+});
+
+socket.on('liveness_event', function(data) {
+    addToLog(`👁️ ${data.message}`, 'info');
+});
+</script>
+{% endblock %}

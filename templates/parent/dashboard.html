@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Parent Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-child me-2"></i>Parent Dashboard</h2>
+            <p class="text-muted">Welcome back, {{ current_user.full_name }}</p>
+        </div>
+    </div>
+
+    <!-- Children Overview -->
+    <div class="row">
+        {% for item in students %}
+        <div class="col-xl-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{{ item.student.user.full_name }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Admission No:</strong> {{ item.student.admission_number }}</p>
+                            <p><strong>Class:</strong> {{ item.student.class.name if item.student.class else 'N/A' }}</p>
+                            <p><strong>Roll Number:</strong> {{ item.student.roll_number or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Today's Status:</strong></p>
+                            {% if item.check_in %}
+                                <span class="badge bg-success">Checked In at {{ item.check_in.strftime('%H:%M:%S') }}</span><br>
+                                {% if item.check_out %}
+                                    <span class="badge bg-info">Checked Out at {{ item.check_out.strftime('%H:%M:%S') }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Still in school</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-danger">Absent</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Attendance Progress -->
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Monthly Attendance</span>
+                            <span>{{ item.month_days }} days</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            {% set month_days = range(1, 32)|list|length %}
+                            {% set percentage = (item.month_days / 30 * 100)|round %}
+                            <div class="progress-bar bg-{{ 'success' if percentage >= 75 else 'warning' }}" 
+                                 style="width: {{ percentage }}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Overall Attendance (30 days)</span>
+                            <span>{{ item.percentage }}%</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-{{ 'success' if item.percentage >= 75 else 'danger' }}" 
+                                 style="width: {{ item.percentage }}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-end">
+                        <a href="#" class="btn btn-sm btn-outline-primary" onclick="viewDetails({{ item.student.id }})">
+                            View Full History <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No children linked to your account.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Notifications -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-bell me-2"></i>Recent Notifications</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group" id="notifications">
+                        <!-- Will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Details Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Attendance Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <canvas id="attendanceChart" height="200"></canvas>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="attendanceTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotifications();
+});
+
+function loadNotifications() {
+    fetch('/api/parent/notifications')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('notifications');
+            container.innerHTML = '';
+            
+            data.forEach(notif => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.className = 'list-group-item list-group-item-action';
+                
+                const time = new Date(notif.timestamp).toLocaleDateString();
+                
+                item.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${notif.subject}</h6>
+                        <small>${time}</small>
+                    </div>
+                    <p class="mb-1">${notif.message}</p>
+                    <small class="text-${notif.type === 'absence' ? 'danger' : 'success'}">
+                        <i class="fas fa-circle me-1"></i> ${notif.type}
+                    </small>
+                `;
+                
+                container.appendChild(item);
+            });
+        });
+}
+
+function viewDetails(studentId) {
+    const modal = new bootstrap.Modal(document.getElementById('studentModal'));
+    
+    fetch(`/api/student/${studentId}/attendance?days=30`)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.querySelector('#attendanceTable tbody');
+            tbody.innerHTML = '';
+            
+            const dates = [];
+            const durations = [];
+            
+            Object.keys(data).sort().reverse().forEach(date => {
+                const records = data[date];
+                const checkIn = records.find(r => r.status === 'in');
+                const checkOut = records.find(r => r.status === 'out');
+                
+                let duration = 0;
+                if (checkIn && checkOut) {
+                    const inTime = new Date(`${date}T${checkIn.time}`);
+                    const outTime = new Date(`${date}T${checkOut.time}`);
+                    duration = (outTime - inTime) / (1000 * 60 * 60); // hours
+                    durations.push(duration);
+                    dates.push(date);
+                }
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${date}</td>
+                    <td>${checkIn ? checkIn.time : 'Absent'}</td>
+                    <td>${checkOut ? checkOut.time : 'Not checked out'}</td>
+                    <td>${duration > 0 ? duration.toFixed(1) + 'h' : 'N/A'}</td>
+                `;
+            });
+            
+            // Create chart
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.slice(0, 10),
+                    datasets: [{
+                        label: 'Hours Present',
+                        data: durations.slice(0, 10),
+                        backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        });
+    
+    modal.show();
+}
+</script>
+{% endblock %}

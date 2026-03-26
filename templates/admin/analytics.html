@@ -1,0 +1,951 @@
+<!-- templates/admin/analytics.html - Updated with Student-wise Attendance -->
+{% extends "base.html" %}
+
+{% block title %}Attendance Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        color: var(--primary);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .session-badge {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 10px 20px;
+        border-radius: 30px;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .session-badge.inactive {
+        background: var(--text-muted);
+    }
+    
+    .chart-container {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .chart-header h5 {
+        margin: 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-bar {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .filter-group label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .filter-select {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        min-width: 150px;
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    
+    .refresh-btn {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .refresh-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(67, 97, 238, 0.3);
+    }
+    
+    .attendance-table-container {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        margin-top: 20px;
+    }
+    
+    .attendance-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .attendance-table th {
+        background: var(--bg-primary);
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid var(--border-color);
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .attendance-table th:hover {
+        background: rgba(67, 97, 238, 0.05);
+    }
+    
+    .attendance-table th i {
+        margin-left: 5px;
+        font-size: 0.7rem;
+        opacity: 0.5;
+    }
+    
+    .attendance-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .attendance-table tr:hover {
+        background: rgba(67, 97, 238, 0.05);
+    }
+    
+    .student-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .student-row:hover {
+        background: rgba(67, 97, 238, 0.1);
+    }
+    
+    .student-detail-row {
+        background: var(--bg-primary);
+    }
+    
+    .student-detail-row td {
+        padding: 0;
+    }
+    
+    .student-attendance-detail {
+        padding: 20px;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .badge-present {
+        background: var(--success);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        display: inline-block;
+    }
+    
+    .badge-absent {
+        background: var(--danger);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        display: inline-block;
+    }
+    
+    .badge-left {
+        background: var(--warning);
+        color: #333;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        display: inline-block;
+    }
+    
+    .confidence-bar {
+        width: 80px;
+        height: 6px;
+        background: var(--border-color);
+        border-radius: 3px;
+        overflow: hidden;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--success), var(--primary));
+        border-radius: 3px;
+    }
+    
+    .student-avatar-small {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    .student-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .student-stat-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius-sm);
+        padding: 15px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+    }
+    
+    .student-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    
+    .student-stat-label {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .filter-group {
+            width: 100%;
+        }
+        
+        .filter-select {
+            width: 100%;
+        }
+        
+        .student-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .attendance-table {
+            font-size: 0.85rem;
+        }
+        
+        .attendance-table th,
+        .attendance-table td {
+            padding: 8px 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h2><i class="fas fa-chart-line me-2"></i>Attendance Analytics</h2>
+                    <p class="text-muted">Real-time attendance analytics and reports</p>
+                </div>
+                <button class="refresh-btn" onclick="refreshAllData()">
+                    <i class="fas fa-sync-alt"></i> Refresh Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Session Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            {% if active_session %}
+            <div class="session-badge">
+                <i class="fas fa-clock"></i>
+                Active Session: {{ active_session.name }} ({{ active_session.start_time.strftime('%H:%M') }} - {{ active_session.end_time.strftime('%H:%M') }})
+            </div>
+            {% else %}
+            <div class="session-badge inactive">
+                <i class="fas fa-clock"></i>
+                No Active Session
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-value" id="totalStudents">0</div>
+            <div class="stat-label">Total Students</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-value" id="presentToday">0</div>
+            <div class="stat-label">Present Today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+            <div class="stat-value" id="absentToday">0</div>
+            <div class="stat-label">Absent Today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-percent"></i></div>
+            <div class="stat-value" id="attendanceRate">0%</div>
+            <div class="stat-label">Attendance Rate</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label><i class="fas fa-calendar"></i> Date Range</label>
+                        <input type="text" id="dateRangePicker" class="filter-select" placeholder="Select Date Range">
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-school"></i> Class</label>
+                        <select id="classFilter" class="filter-select">
+                            <option value="">All Classes</option>
+                            {% for class in classes %}
+                            <option value="{{ class.id }}">{{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-user-graduate"></i> Student</label>
+                        <select id="studentFilter" class="filter-select">
+                            <option value="">All Students</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>&nbsp;</label>
+                        <button class="refresh-btn" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h5><i class="fas fa-chart-line"></i> Daily Attendance Trend</h5>
+                </div>
+                <div style="height: 300px;">
+                    <canvas id="dailyTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h5><i class="fas fa-chart-pie"></i> Class-wise Attendance</h5>
+                </div>
+                <div style="height: 300px;">
+                    <canvas id="classChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Peak Hours Chart -->
+    <div class="row">
+        <div class="col-12">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h5><i class="fas fa-clock"></i> Peak Hours</h5>
+                </div>
+                <div style="height: 300px;">
+                    <canvas id="peakHoursChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student-wise Attendance Table -->
+    <div class="attendance-table-container">
+        <div class="chart-header">
+            <h5><i class="fas fa-user-graduate"></i> Student-wise Attendance</h5>
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>Sort By</label>
+                    <select id="studentSortBy" class="filter-select" onchange="sortStudentTable()">
+                        <option value="name">Name (A-Z)</option>
+                        <option value="attendance">Attendance %</option>
+                        <option value="present">Days Present</option>
+                        <option value="absent">Days Absent</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="attendance-table" id="studentAttendanceTable">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Admission No</th>
+                        <th>Class</th>
+                        <th>Days Present</th>
+                        <th>Days Absent</th>
+                        <th>Attendance %</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </thead>
+                    <tbody id="studentAttendanceBody">
+                         if<td colspan="8" class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin me-2"></i> Loading student data...
+                         </td> </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Detail Modal -->
+    <div class="modal fade" id="studentDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="studentDetailTitle">Student Attendance Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="studentDetailBody">
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+let dailyChart = null;
+let classChart = null;
+let peakHoursChart = null;
+let socket = null;
+let studentsData = [];
+let currentStudentSort = 'name';
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize date range picker
+    $('#dateRangePicker').daterangepicker({
+        startDate: moment().subtract(29, 'days'),
+        endDate: moment(),
+        ranges: {
+            'Today': [moment(), moment()],
+            'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+            'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+            'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+            'This Month': [moment().startOf('month'), moment().endOf('month')],
+            'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+        }
+    }, function() {
+        applyFilters();
+    });
+    
+    // Load students for filter dropdown
+    loadStudentsForFilter();
+    
+    // Initialize WebSocket
+    initializeSocket();
+    
+    // Load all data
+    loadAllData();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadAllData, 30000);
+});
+
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('connect', function() {
+        console.log('Connected to real-time server');
+    });
+    
+    socket.on('attendance_update', function(data) {
+        console.log('Attendance update received:', data);
+        loadAllData();
+    });
+}
+
+function loadAllData() {
+    loadStats();
+    loadDailyTrend();
+    loadClassAttendance();
+    loadPeakHours();
+    loadStudentAttendance();
+}
+
+function refreshAllData() {
+    loadAllData();
+}
+
+function applyFilters() {
+    loadDailyTrend();
+    loadClassAttendance();
+    loadPeakHours();
+    loadStudentAttendance();
+}
+
+async function loadStudentsForFilter() {
+    try {
+        const response = await fetch('/api/students/list');
+        const students = await response.json();
+        const studentFilter = document.getElementById('studentFilter');
+        
+        students.students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = student.name;
+            studentFilter.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading students:', error);
+    }
+}
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/attendance/stats');
+        const data = await response.json();
+        
+        document.getElementById('totalStudents').textContent = data.total_students || 0;
+        document.getElementById('presentToday').textContent = data.checkins_today || 0;
+        
+        const absent = (data.total_students || 0) - (data.checkins_today || 0);
+        document.getElementById('absentToday').textContent = absent;
+        
+        const rate = data.total_students > 0 ? ((data.checkins_today / data.total_students) * 100).toFixed(1) : 0;
+        document.getElementById('attendanceRate').textContent = rate + '%';
+        
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+async function loadDailyTrend() {
+    try {
+        const range = $('#dateRangePicker').data('daterangepicker');
+        const startDate = range ? range.startDate.format('YYYY-MM-DD') : moment().subtract(29, 'days').format('YYYY-MM-DD');
+        const endDate = range ? range.endDate.format('YYYY-MM-DD') : moment().format('YYYY-MM-DD');
+        const classId = document.getElementById('classFilter').value;
+        const studentId = document.getElementById('studentFilter').value;
+        
+        let url = `/api/analytics/daily-trend?start=${startDate}&end=${endDate}`;
+        if (classId) url += `&class_id=${classId}`;
+        if (studentId) url += `&student_id=${studentId}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const ctx = document.getElementById('dailyTrendChart').getContext('2d');
+        
+        if (dailyChart) {
+            dailyChart.destroy();
+        }
+        
+        dailyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.dates || [],
+                datasets: [{
+                    label: studentId ? 'Days Present' : 'Students Present',
+                    data: data.counts || [],
+                    borderColor: '#4361ee',
+                    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#4361ee',
+                    pointBorderColor: '#fff',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { callbacks: { label: (context) => `${context.raw} ${studentId ? 'days present' : 'students present'}` } }
+                },
+                scales: { y: { beginAtZero: true, title: { display: true, text: studentId ? 'Days Present' : 'Number of Students' } } }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error loading daily trend:', error);
+    }
+}
+
+async function loadClassAttendance() {
+    try {
+        const classId = document.getElementById('classFilter').value;
+        let url = '/api/analytics/class-attendance';
+        if (classId) url += `?class_id=${classId}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const ctx = document.getElementById('classChart').getContext('2d');
+        
+        if (classChart) {
+            classChart.destroy();
+        }
+        
+        classChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.classes || [],
+                datasets: [{
+                    label: 'Attendance Rate (%)',
+                    data: data.percentages || [],
+                    backgroundColor: 'rgba(67, 97, 238, 0.7)',
+                    borderColor: '#4361ee',
+                    borderWidth: 1,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Percentage (%)' } } },
+                plugins: { tooltip: { callbacks: { label: (context) => `${context.raw}% attendance` } } }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error loading class attendance:', error);
+    }
+}
+
+async function loadPeakHours() {
+    try {
+        const range = $('#dateRangePicker').data('daterangepicker');
+        const startDate = range ? range.startDate.format('YYYY-MM-DD') : moment().subtract(29, 'days').format('YYYY-MM-DD');
+        const endDate = range ? range.endDate.format('YYYY-MM-DD') : moment().format('YYYY-MM-DD');
+        
+        const response = await fetch(`/api/analytics/peak-hours?start=${startDate}&end=${endDate}`);
+        const data = await response.json();
+        
+        const ctx = document.getElementById('peakHoursChart').getContext('2d');
+        
+        if (peakHoursChart) {
+            peakHoursChart.destroy();
+        }
+        
+        peakHoursChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.hours ? data.hours.map(h => `${h}:00`) : [],
+                datasets: [{
+                    label: 'Check-ins',
+                    data: data.counts || [],
+                    borderColor: '#ffd166',
+                    backgroundColor: 'rgba(255, 209, 102, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ffd166',
+                    pointBorderColor: '#fff',
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Number of Check-ins' } },
+                    x: { title: { display: true, text: 'Hour of Day' } }
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error loading peak hours:', error);
+    }
+}
+
+async function loadStudentAttendance() {
+    try {
+        const range = $('#dateRangePicker').data('daterangepicker');
+        const startDate = range ? range.startDate.format('YYYY-MM-DD') : moment().subtract(29, 'days').format('YYYY-MM-DD');
+        const endDate = range ? range.endDate.format('YYYY-MM-DD') : moment().format('YYYY-MM-DD');
+        const classId = document.getElementById('classFilter').value;
+        
+        let url = `/api/analytics/student-attendance?start=${startDate}&end=${endDate}`;
+        if (classId) url += `&class_id=${classId}`;
+        
+        const response = await fetch(url);
+        studentsData = await response.json();
+        
+        sortAndDisplayStudentTable();
+        
+    } catch (error) {
+        console.error('Error loading student attendance:', error);
+        document.getElementById('studentAttendanceBody').innerHTML = '发展<td colspan="8" class="text-center py-4 text-danger">Error loading student data</td> </tr>';
+    }
+}
+
+function sortAndDisplayStudentTable() {
+    let sortedData = [...studentsData];
+    
+    switch(currentStudentSort) {
+        case 'name':
+            sortedData.sort((a, b) => a.name.localeCompare(b.name));
+            break;
+        case 'attendance':
+            sortedData.sort((a, b) => b.attendance_percentage - a.attendance_percentage);
+            break;
+        case 'present':
+            sortedData.sort((a, b) => b.present_days - a.present_days);
+            break;
+        case 'absent':
+            sortedData.sort((a, b) => b.absent_days - a.absent_days);
+            break;
+        default:
+            sortedData.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    displayStudentTable(sortedData);
+}
+
+function displayStudentTable(students) {
+    const tbody = document.getElementById('studentAttendanceBody');
+    
+    if (!students || students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-users"></i><p>No student data found</p></td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = students.map(student => {
+        const percentage = student.attendance_percentage || 0;
+        const statusClass = percentage >= 75 ? 'badge-present' : (percentage >= 50 ? 'badge-left' : 'badge-absent');
+        const statusText = percentage >= 75 ? 'Good Standing' : (percentage >= 50 ? 'Needs Improvement' : 'Critical');
+        
+        return `
+            <tr class="student-row" onclick="showStudentDetails(${student.id}, '${escapeHtml(student.name)}')">
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="student-avatar-small">
+                            ${student.name.charAt(0).toUpperCase()}
+                        </div>
+                        <strong>${escapeHtml(student.name)}</strong>
+                    </div>
+                </td>
+                <td>${student.admission_number || '-'}</td>
+                <td>${student.class_name || 'Not Assigned'}</td>
+                <td>${student.present_days || 0}</td>
+                <td>${student.absent_days || 0}</td>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <span>${percentage}%</span>
+                    </div>
+                </td>
+                <td><span class="${statusClass}">${statusText}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); showStudentDetails(${student.id}, '${escapeHtml(student.name)}')">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function showStudentDetails(studentId, studentName) {
+    const modal = new bootstrap.Modal(document.getElementById('studentDetailModal'));
+    document.getElementById('studentDetailTitle').textContent = `${studentName} - Attendance Details`;
+    document.getElementById('studentDetailBody').innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Loading details...</div>';
+    modal.show();
+    
+    try {
+        const range = $('#dateRangePicker').data('daterangepicker');
+        const startDate = range ? range.startDate.format('YYYY-MM-DD') : moment().subtract(29, 'days').format('YYYY-MM-DD');
+        const endDate = range ? range.endDate.format('YYYY-MM-DD') : moment().format('YYYY-MM-DD');
+        
+        const response = await fetch(`/api/analytics/student-detail?student_id=${studentId}&start=${startDate}&end=${endDate}`);
+        const data = await response.json();
+        
+        document.getElementById('studentDetailBody').innerHTML = `
+            <div class="student-stats">
+                <div class="student-stat-card">
+                    <div class="student-stat-value">${data.total_days || 0}</div>
+                    <div class="student-stat-label">Total Days</div>
+                </div>
+                <div class="student-stat-card">
+                    <div class="student-stat-value">${data.present_days || 0}</div>
+                    <div class="student-stat-label">Days Present</div>
+                </div>
+                <div class="student-stat-card">
+                    <div class="student-stat-value">${data.absent_days || 0}</div>
+                    <div class="student-stat-label">Days Absent</div>
+                </div>
+                <div class="student-stat-card">
+                    <div class="student-stat-value">${data.attendance_percentage || 0}%</div>
+                    <div class="student-stat-label">Attendance Rate</div>
+                </div>
+            </div>
+            <h6 class="mt-3">Recent Attendance Records</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Date</th><th>Check In</th><th>Check Out</th><th>Status</th><th>Confidence</th></tr>
+                    </thead>
+                    <tbody>
+                        ${data.recent_records && data.recent_records.length > 0 ? data.recent_records.map(record => `
+                            <tr>
+                                <td>${record.date}</td>
+                                <td>${record.check_in || '-'}</td>
+                                <td>${record.check_out || '-'}</td>
+                                <td><span class="badge-present">PRESENT</span></td>
+                                <td>${record.confidence || '-'}%</td>
+                            </tr>
+                        `).join('') : '<tr><td colspan="5" class="text-center">No attendance records found</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading student details:', error);
+        document.getElementById('studentDetailBody').innerHTML = '<div class="text-center py-4 text-danger">Error loading details</div>';
+    }
+}
+
+function sortStudentTable() {
+    currentStudentSort = document.getElementById('studentSortBy').value;
+    sortAndDisplayStudentTable();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

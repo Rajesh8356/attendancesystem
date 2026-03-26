@@ -1,0 +1,78 @@
+{% extends "base_student.html" %}
+
+{% block title %}My Attendance History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2><i class="fas fa-calendar-check me-2"></i>My Attendance History</h2>
+    <p class="text-muted">View your complete attendance record</p>
+
+    <!-- Date Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">End Date</label>
+                    <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <a href="{{ url_for('student_attendance_history') }}" class="btn btn-secondary ms-2">
+                        <i class="fas fa-redo"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Confidence</th>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                            <tr>
+                                <td>{{ record.timestamp.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ record.timestamp.strftime('%A') }}</td>
+                                <td>{{ record.timestamp.strftime('%H:%M:%S') if record.status == 'in' else '-' }}</td>
+                                <td>{{ record.timestamp.strftime('%H:%M:%S') if record.status == 'out' else '-' }}</td>
+                                <td>
+                                    {% if record.status == 'in' %}
+                                        <span class="badge bg-success">PRESENT</span>
+                                    {% elif record.status == 'out' %}
+                                        <span class="badge bg-info">LEFT</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">ABSENT</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.confidence|round(1) }}%</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center">No attendance records found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

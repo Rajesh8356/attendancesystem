@@ -1,0 +1,122 @@
+{% extends "base_teacher.html" %}
+
+{% block title %}Send Notifications{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-bell me-2"></i>Send Notifications</h2>
+            <p class="text-muted">Send announcements to students</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-paper-plane me-2"></i>Create Notification</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="notificationForm">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-control" name="title" required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Content</label>
+                            <textarea class="form-control" name="content" rows="5" required></textarea>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Target Audience</label>
+                            <select class="form-control" name="target_type" id="targetType" onchange="toggleTargetOptions()">
+                                <option value="all">All Students (All my classes)</option>
+                                <option value="class">Specific Class</option>
+                                <option value="subject">Specific Subject</option>
+                            </select>
+                        </div>
+                        
+                        <div id="classOptions" style="display: none;" class="mb-3">
+                            <label class="form-label">Select Class</label>
+                            <select class="form-control" name="class_id">
+                                <option value="">-- Select Class --</option>
+                                {% for class in classes %}
+                                <option value="{{ class.id }}">{{ class.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div id="subjectOptions" style="display: none;" class="mb-3">
+                            <label class="form-label">Select Subject</label>
+                            <select class="form-control" name="subject_id">
+                                <option value="">-- Select Subject --</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.subject_id }}">{{ subject.subject.name }} ({{ subject.assigned_class.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" name="send_sms" id="sendSms">
+                            <label class="form-check-label" for="sendSms">
+                                <i class="fas fa-envelope"></i> Send SMS to parents
+                            </label>
+                            <small class="text-muted d-block">SMS will be sent to registered parent phone numbers</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Send Notification
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-history me-2"></i>Recent Notifications</h5>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    {% for notification in teacher.teacher_notifications.order_by(TeacherNotification.created_at.desc()).limit(10).all() %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ notification.title }}</h6>
+                            <p class="card-text small">{{ notification.content|truncate(100) }}</p>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">
+                                    <i class="far fa-clock"></i> {{ notification.created_at.strftime('%d %b %Y, %H:%M') }}
+                                </small>
+                                <small class="text-muted">
+                                    <i class="fas fa-users"></i> 
+                                    {% if notification.target_all %}All Students
+                                    {% elif notification.target_class %}Class: {{ notification.target_class.name }}
+                                    {% elif notification.subject %}Subject: {{ notification.subject.name }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-bell-slash fa-3x mb-3 text-muted"></i>
+                        <p>No notifications sent yet</p>
+                        <p class="small text-muted">Create your first notification above</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTargetOptions() {
+    const targetType = document.getElementById('targetType').value;
+    document.getElementById('classOptions').style.display = targetType === 'class' ? 'block' : 'none';
+    document.getElementById('subjectOptions').style.display = targetType === 'subject' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

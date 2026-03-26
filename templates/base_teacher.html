@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Teacher Portal - Attendance System{% endblock %}</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow: hidden;
+            width: 280px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            transition: var(--transition);
+            z-index: 100;
+        }
+        
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        
+        .sidebar.collapsed .sidebar-header span,
+        .sidebar.collapsed .nav-item span,
+        .sidebar.collapsed .user-details {
+            display: none;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+        }
+        
+        .sidebar.collapsed .nav-item i {
+            margin-right: 0;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .logo i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+        
+        .logo span {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 20px 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: var(--transition);
+            margin: 4px 10px;
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .nav-item:hover {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+        
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .nav-divider {
+            padding: 12px 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+        
+        .sidebar-footer {
+            flex-shrink: 0;
+            margin-top: auto;
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-card);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .user-role {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .main-content {
+            margin-left: 280px;
+            transition: var(--transition);
+            min-height: 100vh;
+        }
+        
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+        
+        .top-bar {
+            padding: 20px 30px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .page-title p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .date-time {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .alert {
+            border-radius: var(--border-radius-sm);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+    
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-wrapper">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-chalkboard-user"></i>
+                    <span>Teacher<span>Portal</span></span>
+                </div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('teacher_dashboard') }}" class="nav-item {% if request.endpoint == 'teacher_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('teacher_create_session') }}" class="nav-item {% if request.endpoint == 'teacher_create_session' %}active{% endif %}">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Create Session</span>
+                </a>
+                <a href="{{ url_for('teacher_take_attendance') }}" class="nav-item {% if request.endpoint == 'teacher_take_attendance' %}active{% endif %}">
+                    <i class="fas fa-camera"></i>
+                    <span>Take Attendance</span>
+                </a>
+                <a href="{{ url_for('teacher_notifications') }}" class="nav-item {% if request.endpoint == 'teacher_notifications' %}active{% endif %}">
+                    <i class="fas fa-bell"></i>
+                    <span>Send Notification</span>
+                </a>
+                <a href="{{ url_for('teacher_reports') }}" class="nav-item {% if request.endpoint == 'teacher_reports' %}active{% endif %}">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Reports</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        {{ current_user.full_name[0] if current_user.full_name else 'T' }}
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ current_user.full_name }}</div>
+                        <div class="user-role">Teacher</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content" id="mainContent">
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1>{% block page_title %}Teacher Dashboard{% endblock %}</h1>
+                    <p>{% block page_subtitle %}Manage your classes and attendance{% endblock %}</p>
+                </div>
+                
+                <div class="top-bar-actions">
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    
+                    <div class="date-time">
+                        <i class="far fa-calendar-alt"></i>
+                        <span id="currentDateTime"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flash-messages">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            const dateTimeEl = document.getElementById('currentDateTime');
+            if (dateTimeEl) {
+                dateTimeEl.textContent = now.toLocaleDateString('en-US', options);
+            }
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            html.setAttribute('data-theme', newTheme);
+            
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,225 @@
+{% extends "base_teacher.html" %}
+
+{% block title %}Take Attendance{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-camera me-2"></i>Take Attendance</h2>
+            <p class="text-muted">Mark attendance for your active sessions</p>
+        </div>
+    </div>
+
+    <!-- Active Sessions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock me-2"></i>Active Sessions</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_sessions %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Subject</th>
+                                        <th>Class</th>
+                                        <th>Camera</th>
+                                        <th>Status</th>
+                                        <th>Attendance</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for session in active_sessions %}
+                                    <tr>
+                                        <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}</td>
+                                        <td>{{ session.subject.name }}</td>
+                                        <td>{{ session.assigned_class.name }}</td>
+                                        <td>
+                                            {% if session.camera %}
+                                                {{ session.camera.name }}
+                                            {% else %}
+                                                <span class="text-muted">Auto</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if session.is_active_at_time(now) %}
+                                                <span class="badge bg-success">Active Now</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Upcoming</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% set attendance_count = session.session_attendance_records.filter_by(status='present').count() %}
+                                            {% set total_students = session.assigned_class.enrolled_students.filter_by(is_active=True).count() %}
+                                            {% if total_students > 0 %}
+                                                {{ ((attendance_count / total_students) * 100)|round(1) }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x mb-3 text-muted"></i>
+                            <p>No active sessions at the moment</p>
+                            <a href="{{ url_for('teacher_create_session') }}" class="btn btn-primary">
+                                <i class="fas fa-plus-circle"></i> Create Session
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Sessions -->
+    {% if upcoming_sessions %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-alt me-2"></i>Upcoming Sessions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Repeat</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in upcoming_sessions %}
+                                <tr>
+                                    <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}</td>
+                                    <td>{{ session.subject.name }}</td>
+                                    <td>{{ session.assigned_class.name }}</td>
+                                    <td>
+                                        {% if session.repeat_type == 'daily' %}Daily
+                                        {% elif session.repeat_type == 'weekly' %}Weekly
+                                        {% else %}Once{% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Past Sessions -->
+    {% if past_sessions %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history me-2"></i>Past Sessions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Attendance Rate</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in past_sessions %}
+                                <tr>
+                                    <td>{{ session.created_at.strftime('%d %b %Y') }}</td>
+                                    <td>{{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}</td>
+                                    <td>{{ session.subject.name }}</td>
+                                    <td>{{ session.assigned_class.name }}</td>
+                                    <td>
+                                        {% set attendance_count = session.session_attendance_records.filter_by(status='present').count() %}
+                                        {% set total_students = session.assigned_class.enrolled_students.filter_by(is_active=True).count() %}
+                                        {% if total_students > 0 %}
+                                            {{ ((attendance_count / total_students) * 100)|round(1) }}%
+                                        {% else %}
+                                            0%
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('teacher_session_detail', session_id=session.id) }}" class="btn btn-sm btn-secondary">
+                                            <i class="fas fa-chart-bar"></i> View Report
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function showNotification(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert-toast ${type}`;
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i> ${message}`;
+    document.body.appendChild(toast);
+    toast.style.display = 'block';
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+
+<style>
+.alert-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    border-left: 4px solid var(--success);
+}
+
+.alert-toast.error {
+    border-left-color: var(--danger);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+</style>
+{% endblock %}

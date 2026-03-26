@@ -1,0 +1,529 @@
+<!-- templates/base_student.html - Student Portal Base Template -->
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Student Portal - Attendance System{% endblock %}</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #7209b7;
+            --success: #06d6a0;
+            --danger: #ef476f;
+            --warning: #ffd166;
+            --info: #4cc9f0;
+            --bg-primary: #f8fafc;
+            --bg-card: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            --border-radius: 16px;
+            --border-radius-sm: 8px;
+            --transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: var(--transition);
+        }
+        
+        .app-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            height: 100vh;
+            transition: var(--transition);
+            z-index: 100;
+        }
+        
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        
+        .sidebar.collapsed .sidebar-header span,
+        .sidebar.collapsed .nav-item span,
+        .sidebar.collapsed .user-details {
+            display: none;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+        }
+        
+        .sidebar.collapsed .nav-item i {
+            margin-right: 0;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .logo i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+        
+        .logo span {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+        
+        .sidebar-nav {
+            padding: 20px 0;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: var(--transition);
+            margin: 4px 10px;
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .nav-item:hover {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+        
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .nav-divider {
+            padding: 12px 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+        
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .user-role {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            transition: var(--transition);
+        }
+        
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+        
+        .top-bar {
+            padding: 20px 30px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .page-title p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .notification-badge {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .notification-badge .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.6rem;
+            padding: 2px 5px;
+            border-radius: 10px;
+        }
+        
+        .date-time {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .alert {
+            border-radius: var(--border-radius-sm);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+    
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-face-smile"></i>
+                    <span>Face<span>Attendance</span></span>
+                </div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('student_dashboard') }}" class="nav-item {% if request.endpoint == 'student_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('student_attendance') }}" class="nav-item {% if request.endpoint == 'student_attendance' %}active{% endif %}">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>My Attendance</span>
+                </a>
+                <a href="{{ url_for('student_announcements') }}" class="nav-item {% if request.endpoint == 'student_announcements' %}active{% endif %}">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Announcements</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        {{ current_user.full_name[0] if current_user.full_name else 'S' }}
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ current_user.full_name }}</div>
+                        <div class="user-role">Student</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1>{% block page_title %}Student Dashboard{% endblock %}</h1>
+                    <p>{% block page_subtitle %}Track your attendance and stay updated{% endblock %}</p>
+                </div>
+                
+                <div class="top-bar-actions">
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    
+                    <div class="date-time">
+                        <i class="far fa-calendar-alt"></i>
+                        <span id="currentDateTime"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            <div class="flash-messages">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            const dateTimeEl = document.getElementById('currentDateTime');
+            if (dateTimeEl) {
+                dateTimeEl.textContent = now.toLocaleDateString('en-US', options);
+            }
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            html.setAttribute('data-theme', newTheme);
+            
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

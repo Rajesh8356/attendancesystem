@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}{{ class.name }} - Attendance{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-users me-2"></i>{{ class.name }} - Attendance</h2>
+            <p class="text-muted">Date: {{ today }}</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Students</h5>
+                    <h2>{{ attendance_data|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Present</h5>
+                    <h2>{{ attendance_data|selectattr('check_in', '!=', None)|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Checked Out</h5>
+                    <h2>{{ attendance_data|selectattr('check_out', '!=', None)|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Attendance %</h5>
+                    <h2>
+                        {% set present = attendance_data|selectattr('check_in', '!=', None)|list|length %}
+                        {% if attendance_data|length > 0 %}
+                            {{ ((present / attendance_data|length) * 100)|round(1) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Attendance List</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Roll No</th>
+                            <th>Admission No</th>
+                            <th>Student Name</th>
+                            <th>Check In Time</th>
+                            <th>Check Out Time</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in attendance_data %}
+                        <tr>
+                            <td>{{ item.student.roll_number or 'N/A' }}</td>
+                            <td>{{ item.student.admission_number }}</td>
+                            <td>{{ item.student.user.full_name if item.student.user else 'N/A' }}</td>
+                            <td>
+                                {% if item.check_in %}
+                                    {{ item.check_in.strftime('%H:%M:%S') }}
+                                {% else %}
+                                    <span class="text-danger">Not checked in</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.check_out %}
+                                    {{ item.check_out.strftime('%H:%M:%S') }}
+                                {% else %}
+                                    <span class="text-warning">Not checked out</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.check_in and item.check_out %}
+                                    {% set duration = (item.check_out - item.check_in).seconds %}
+                                    {% set hours = duration // 3600 %}
+                                    {% set minutes = (duration % 3600) // 60 %}
+                                    {{ hours }}h {{ minutes }}m
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.check_in %}
+                                    <span class="badge bg-success">Present</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Absent</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-download me-2"></i>Export Options</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-outline-success" onclick="exportAttendance('csv')">
+                        <i class="fas fa-file-csv"></i> Export as CSV
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="exportAttendance('pdf')">
+                        <i class="fas fa-file-pdf"></i> Export as PDF
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="exportAttendance('excel')">
+                        <i class="fas fa-file-excel"></i> Export as Excel
+                    </button>
+                    <button class="btn btn-outline-info" onclick="printAttendance()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportAttendance(format) {
+    const classId = {{ class.id }};
+    const date = '{{ today }}';
+    
+    window.location.href = `/api/export/class/${classId}?format=${format}&date=${date}`;
+}
+
+function printAttendance() {
+    window.print();
+}
+</script>
+
+<style media="print">
+    .navbar, .footer, .btn, .card-header {
+        display: none !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+</style>
+{% endblock %}

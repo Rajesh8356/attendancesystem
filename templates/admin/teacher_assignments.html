@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Assignments{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-user-graduate me-2"></i>Teacher Assignments</h2>
+            <p class="text-muted">Assign subjects to teachers for specific classes</p>
+        </div>
+    </div>
+
+    <!-- Add Assignment Form -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-plus-circle me-2"></i>Assign Subject to Teacher</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_add_teacher_assignment') }}">
+                        <div class="mb-3">
+                            <label class="form-label">Select Teacher</label>
+                            <select class="form-control" name="teacher_id" required>
+                                <option value="">-- Select Teacher --</option>
+                                {% for teacher in teachers %}
+                                <option value="{{ teacher.id }}">{{ teacher.user.full_name }} ({{ teacher.employee_id }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select Subject</label>
+                            <select class="form-control" name="subject_id" required>
+                                <option value="">-- Select Subject --</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select Class</label>
+                            <select class="form-control" name="class_id" required>
+                                <option value="">-- Select Class --</option>
+                                {% for class in classes %}
+                                <option value="{{ class.id }}">{{ class.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Create Assignment
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-info-circle me-2"></i>Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>Note:</strong>
+                        <ul class="mt-2 mb-0">
+                            <li>Each teacher can be assigned multiple subjects</li>
+                            <li>Same subject can be taught by different teachers for different classes</li>
+                            <li>Assignments are used to filter sessions for teachers</li>
+                            <li>Students will see their subject teachers in their portal</li>
+                            <li>Teachers can only create sessions for subjects they are assigned to</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Assignments List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list me-2"></i>Current Assignments</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Teacher</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Assigned Date</th>
+                                    <th>Actions</th>
+                                </thead>
+                                <tbody>
+                                    {% for assignment in assignments %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ assignment.teacher.user.full_name }}</strong><br>
+                                            <small class="text-muted">{{ assignment.teacher.employee_id }}</small>
+                                        </td>
+                                        <td>
+                                            {{ assignment.subject.name }}<br>
+                                            <small class="text-muted">{{ assignment.subject.code }}</small>
+                                        </td>
+                                        <td>{{ assignment.assigned_class.name }}</td>
+                                        <td>{{ assignment.assigned_at.strftime('%d %b %Y') }}</td>
+                                        <td>
+                                            <form method="POST" action="{{ url_for('admin_remove_teacher_assignment', assignment_id=assignment.id) }}" style="display: inline;" onsubmit="return confirm('Remove this assignment?')">
+                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                    <i class="fas fa-trash"></i> Remove
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4">
+                                            <i class="fas fa-users fa-2x mb-2 text-muted"></i>
+                                            <p>No assignments created yet</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

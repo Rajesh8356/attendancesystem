@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block page_title %}Announcements{% endblock %}
+{% block page_subtitle %}Manage class announcements{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-plus-circle me-2"></i>New Announcement</h5>
+                </div>
+                <div class="card-body">
+                    <form id="announcementForm">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Content</label>
+                            <textarea class="form-control" id="content" rows="4" required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Target</label>
+                            <select class="form-control" id="target">
+                                <option value="all">All Students</option>
+                                <option value="class">Specific Class</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="classSelector" style="display: none;">
+                            <label>Select Class</label>
+                            <select class="form-control" id="classId">
+                                {% for class in classes %}
+                                <option value="{{ class.id }}">{{ class.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Expires</label>
+                            <input type="date" class="form-control" id="expires" 
+                                   value="{{ future_date }}">
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="isPinned">
+                            <label class="form-check-label">Pin to top</label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Post Announcement
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history me-2"></i>Previous Announcements</h5>
+                </div>
+                <div class="card-body" id="announcementsList">
+                    {% for announcement in announcements %}
+                    <div class="card mb-3 {% if announcement.is_pinned %}border-primary{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <h6>{{ announcement.title }}</h6>
+                                <small class="text-muted">{{ announcement.created_at.strftime('%d %b, %H:%M') }}</small>
+                            </div>
+                            <p>{{ announcement.content }}</p>
+                            <small>
+                                Target: {{ announcement.target_role|title }}
+                                {% if announcement.is_pinned %}
+                                <span class="badge bg-primary ms-2">Pinned</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No announcements yet</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('target').addEventListener('change', function() {
+    document.getElementById('classSelector').style.display = 
+        this.value === 'class' ? 'block' : 'none';
+});
+
+document.getElementById('announcementForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const data = {
+        title: document.getElementById('title').value,
+        content: document.getElementById('content').value,
+        target: document.getElementById('target').value,
+        class_id: document.getElementById('classId')?.value,
+        expires: document.getElementById('expires').value,
+        is_pinned: document.getElementById('isPinned').checked
+    };
+    
+    fetch('/api/announcements/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error creating announcement');
+        }
+    });
+});
+</script>
+{% endblock %}

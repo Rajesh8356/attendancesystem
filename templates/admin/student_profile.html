@@ -1,0 +1,438 @@
+<!-- templates/admin/student_profile.html - Updated with complete information -->
+{% extends "base.html" %}
+
+{% block title %}Student Profile{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Profile Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-user-graduate me-2"></i>Student Profile</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <div class="profile-image mb-3">
+                                {% if student.face_images %}
+                                    {% set face_images = student.face_images|from_json %}
+                                    {% if face_images and face_images|length > 0 %}
+                                        <img src="{{ url_for('get_student_face_image', student_id=student.id) }}?t={{ range(1, 1000000)|random }}" 
+                                            class="img-fluid rounded-circle" style="width: 150px; height: 150px; object-fit: cover;"
+                                            alt="Student Photo">
+                                        <div class="mt-2">
+                                            <small class="text-muted">{{ face_images|length }} face image(s) registered</small>
+                                        </div>
+                                    {% else %}
+                                        <div class="bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center" 
+                                            style="width: 150px; height: 150px; font-size: 48px;">
+                                            {{ student.user.full_name[0] if student.user.full_name else 'S' }}
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center" 
+                                        style="width: 150px; height: 150px; font-size: 48px;">
+                                        {{ student.user.full_name[0] if student.user.full_name else 'S' }}
+                                    </div>
+                                {% endif %}
+                                <div class="mt-2">
+                                    <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-edit"></i> Edit Profile
+                                    </a>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteStudent({{ student.id }}, '{{ student.user.full_name }}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                            <h5>{{ student.user.full_name if student.user else 'N/A' }}</h5>
+                            <p class="text-muted">{{ student.admission_number }}</p>
+                            <span class="badge bg-{{ 'success' if student.is_active else 'danger' }} px-3 py-2">
+                                {{ 'Active' if student.is_active else 'Inactive' }}
+                            </span>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Personal Information</h6>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 40%;">Roll Number:</th>
+                                            <td>{{ student.roll_number if student.roll_number else 'Not Assigned' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Date of Birth:</th>
+                                            <td>{{ student.date_of_birth.strftime('%d-%m-%Y') if student.date_of_birth else 'Not Set' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Gender:</th>
+                                            <td>{{ student.gender if student.gender else 'Not Specified' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Email:</th>
+                                            <td>{{ student.user.email if student.user and student.user.email else 'Not Provided' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Phone:</th>
+                                            <td>{{ student.user.phone if student.user and student.user.phone else 'Not Provided' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Address:</th>
+                                            <td>{{ student.address if student.address else 'Not Provided' }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Academic Information</h6>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 40%;">Class:</th>
+                                            <td>
+                                                {% if student.current_class %}
+                                                    {{ student.current_class.name }}
+                                                    {% if student.current_class.section %}
+                                                        - Section {{ student.current_class.section }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">Not Assigned</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Teacher:</th>
+                                            <td>
+                                                {% if student.current_class and student.current_class.teacher %}
+                                                    {{ student.current_class.teacher.user.full_name if student.current_class.teacher.user else 'Not Assigned' }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Assigned</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Academic Year:</th>
+                                            <td>
+                                                {% if student.current_class and student.current_class.academic_year %}
+                                                    {{ student.current_class.academic_year }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Set</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Room Number:</th>
+                                            <td>
+                                                {% if student.current_class and student.current_class.room_number %}
+                                                    {{ student.current_class.room_number }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Assigned</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <h6 class="text-primary">Parent Information</h6>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 20%;">Parent Name:</th>
+                                            <td>
+                                                {% if student.parent and student.parent.user %}
+                                                    {{ student.parent.user.full_name }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Registered</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Contact:</th>
+                                            <td>
+                                                {% if student.parent and student.parent.user %}
+                                                    {{ student.parent.user.phone if student.parent.user.phone else 'Not Provided' }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Available</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Email:</th>
+                                            <td>
+                                                {% if student.parent and student.parent.user %}
+                                                    {{ student.parent.user.email if student.parent.user.email else 'Not Provided' }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Available</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Alternate Phone:</th>
+                                            <td>
+                                                {% if student.parent and student.parent.alternate_phone %}
+                                                    {{ student.parent.alternate_phone }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Provided</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Address:</th>
+                                            <td>
+                                                {% if student.parent and student.parent.address %}
+                                                    {{ student.parent.address }}
+                                                {% else %}
+                                                    <span class="text-muted">Not Provided</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Days Present</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_days }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-check fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Current Month</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ this_month if this_month is defined else 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Last 30 Days</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ last_30_days }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-{{ 'success' if attendance_percentage >= min_attendance else 'danger' }} shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-uppercase mb-1">
+                                Attendance %</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ attendance_percentage }}%
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percent fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Attendance Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Monthly Attendance</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Attendance Records -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Attendance</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Day</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Duration</th>
+                                    <th>Confidence</th>
+                                </thead>
+                            <tbody>
+                                {% for record in recent_attendance %}
+                                <tr>
+                                    <td>{{ record.timestamp.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ record.timestamp.strftime('%A') }}</td>
+                                    <td>
+                                        {% if record.status == 'in' %}
+                                            {{ record.timestamp.strftime('%H:%M:%S') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.status == 'out' %}
+                                            {{ record.timestamp.strftime('%H:%M:%S') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.status == 'in' and loop.next and loop.next.status == 'out' %}
+                                            {% set check_out = loop.next %}
+                                            {% set duration = (check_out.timestamp - record.timestamp).total_seconds() %}
+                                            {% set hours = duration // 3600 %}
+                                            {% set minutes = (duration % 3600) // 60 %}
+                                            {{ "%.0f"|format(hours) }}h {{ "%.0f"|format(minutes) }}m
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress" style="width: 80px; height: 6px;">
+                                                <div class="progress-bar bg-{{ 'success' if record.confidence > 80 else 'warning' }}" 
+                                                     style="width: {{ record.confidence }}%"></div>
+                                            </div>
+                                            <span>{{ record.confidence|round(1) }}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="fas fa-calendar-times fa-2x mb-2 d-block text-muted"></i>
+                                        <p class="text-muted">No attendance records found</p>
+                                        <small class="text-muted">Attendance will appear here once the student checks in</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    
+    const months = [
+        {% for stat in monthly_stats %}
+            "{{ stat.month }}",
+        {% endfor %}
+    ];
+    
+    const counts = [
+        {% for stat in monthly_stats %}
+            {{ stat.count }},
+        {% endfor %}
+    ];
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'Days Present',
+                data: counts,
+                backgroundColor: 'rgba(67, 97, 238, 0.7)',
+                borderColor: 'rgba(67, 97, 238, 1)',
+                borderWidth: 1,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 31,
+                    title: {
+                        display: true,
+                        text: 'Days Present'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Month'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `${context.raw} days present`
+                    }
+                }
+            }
+        }
+    });
+});
+
+function deleteStudent(studentId, studentName) {
+    if (confirm(`Are you sure you want to delete ${studentName}? This action cannot be undone and will delete all attendance records.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/student/delete/${studentId}`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

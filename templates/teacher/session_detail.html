@@ -1,0 +1,180 @@
+{% extends "base_teacher.html" %}
+
+{% block title %}{{ session.name }} - Session Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-calendar-check me-2"></i>{{ session.name }}</h2>
+            <p class="text-muted">{{ session.subject.name }} | {{ session.assigned_class.name }} | 
+               {{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div class="stat-value">{{ total_students }}</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-value">{{ present_count }}</div>
+                <div class="stat-label">Present</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                <div class="stat-value">{{ absent_count }}</div>
+                <div class="stat-label">Absent</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-percent"></i></div>
+                <div class="stat-value">{{ attendance_rate }}%</div>
+                <div class="stat-label">Attendance Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-list me-2"></i>Attendance Records</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Admission No</th>
+                            <th>Student Name</th>
+                            <th>Status</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Duration</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in attendance_data %}
+                        <tr>
+                            <td>{{ data.student.admission_number }}</td>
+                            <td><strong>{{ data.student.user.full_name if data.student.user else 'Unknown' }}</strong></td>
+                            <td>
+                                {% if data.status == 'present' %}
+                                    <span class="badge bg-success">PRESENT</span>
+                                {% elif data.status == 'late' %}
+                                    <span class="badge bg-warning">LATE</span>
+                                {% else %}
+                                    <span class="badge bg-danger">ABSENT</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ data.check_in_time.strftime('%H:%M:%S') if data.check_in_time else '-' }}</td>
+                            <td>{{ data.check_out_time.strftime('%H:%M:%S') if data.check_out_time else '-' }}</td>
+                            <td>{{ data.duration_minutes }} mins if data.duration_minutes else '-' }}</td>
+                            <td>{{ data.confidence }}% if data.confidence else '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <i class="fas fa-calendar-times fa-2x mb-2 text-muted"></i>
+                                <p>No attendance records for this session</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-cog me-2"></i>Actions</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary" onclick="exportAttendance()">
+                        <i class="fas fa-download"></i> Export Report
+                    </button>
+                    <button class="btn btn-info" onclick="sendAbsenceNotifications()">
+                        <i class="fas fa-bell"></i> Notify Absent Students
+                    </button>
+                    <a href="{{ url_for('teacher_take_attendance') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Attendance
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        transition: all 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        color: var(--primary);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+    }
+</style>
+
+<script>
+function exportAttendance() {
+    const sessionId = {{ session.id }};
+    window.location.href = `/api/export/session/${sessionId}`;
+}
+
+function sendAbsenceNotifications() {
+    const sessionId = {{ session.id }};
+    
+    if (confirm('Send absence notifications to parents of absent students?')) {
+        fetch(`/api/teacher/session/${sessionId}/notify-absent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Notifications sent to ${data.sent_count} parents`);
+            } else {
+                alert('Error sending notifications');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

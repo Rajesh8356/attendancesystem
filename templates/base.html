@@ -1,0 +1,739 @@
+{#<!-- templates/base.html - Modified to keep user info at bottom -->
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Attendance Management System{% endblock %}</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Additional CSS for sidebar layout fix -->
+    <style>
+        /* Fix sidebar layout - keep user info at bottom */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        /* Custom scrollbar for sidebar navigation */
+        .sidebar-nav::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+        
+        /* Ensure footer stays at bottom */
+        .sidebar-footer {
+            flex-shrink: 0;
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-card);
+        }
+        
+        /* Fix for collapsed sidebar */
+        .sidebar.collapsed .sidebar-nav {
+            overflow-y: auto;
+        }
+        
+        /* Ensure main content doesn't get pushed */
+        .main-content {
+            margin-left: 280px;
+            transition: var(--transition);
+            min-height: 100vh;
+        }
+        
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Theme initialization script - runs before page renders -->
+    <script>
+        // Check for saved theme on page load
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-face-smile"></i>
+                    <span>Face<span>Attendance</span></span>
+                </div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <!-- Navigation - This will scroll if content overflows -->
+            <nav class="sidebar-nav">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        
+                        <div class="nav-divider">STUDENTS</div>
+                        
+                        <a href="{{ url_for('student_list') }}" class="nav-item {% if request.endpoint == 'student_list' %}active{% endif %}">
+                            <i class="fas fa-users"></i>
+                            <span>All Students</span>
+                        </a>
+                        <a href="{{ url_for('register_student') }}" class="nav-item {% if request.endpoint == 'register_student' %}active{% endif %}">
+                            <i class="fas fa-user-plus"></i>
+                            <span>Register New</span>
+                        </a>
+                        
+                        <div class="nav-divider">ATTENDANCE</div>
+                        
+                        <a href="{{ url_for('attendance_session') }}" class="nav-item {% if request.endpoint == 'attendance_session' %}active{% endif %}">
+                            <i class="fas fa-clock"></i>
+                            <span>Create Session</span>
+                        </a>
+                        <a href="{{ url_for('select_camera_attendance') }}" class="nav-item {% if request.endpoint == 'select_camera_attendance' %}active{% endif %}">
+                            <i class="fas fa-camera"></i>
+                            <span>Take Attendance</span>
+                        </a>
+                        <a href="{{ url_for('simple_attendance') }}" class="nav-item {% if request.endpoint == 'simple_attendance' %}active{% endif %}">
+                            <i class="fas fa-camera-retro"></i>
+                            <span>Simple Attendance</span>
+                        </a>
+                        
+                        <div class="nav-divider">MONITORING</div>
+                        
+                        <a href="{{ url_for('live_monitoring') }}" class="nav-item {% if request.endpoint == 'live_monitoring' %}active{% endif %}">
+                            <i class="fas fa-video"></i>
+                            <span>Live Cameras</span>
+                        </a>
+                        <a href="{{ url_for('dual_camera') }}" class="nav-item {% if request.endpoint == 'dual_camera' %}active{% endif %}">
+                            <i class="fas fa-camera-retro"></i>
+                            <span>Dual Camera</span>
+                        </a>
+                        <a href="{{ url_for('liveness_dual_camera') }}" class="nav-item {% if request.endpoint == 'liveness_dual_camera' %}active{% endif %}">
+                            <i class="fas fa-eye"></i>
+                            <span>Liveness Dual Camera</span>
+                        </a>
+                        
+                        <div class="nav-divider">ANALYTICS</div>
+                        
+                        <a href="{{ url_for('analytics') }}" class="nav-item {% if request.endpoint == 'analytics' %}active{% endif %}">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Analytics</span>
+                        </a>
+                        <a href="{{ url_for('verify_false_positives') }}" class="nav-item {% if request.endpoint == 'verify_false_positives' %}active{% endif %}">
+                            <i class="fas fa-check-double"></i>
+                            <span>Verification</span>
+                        </a>
+                        
+                        <div class="nav-divider">SYSTEM</div>
+                        
+                        <a href="{{ url_for('settings') }}" class="nav-item {% if request.endpoint == 'settings' %}active{% endif %}">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </a>
+                        
+                    {% elif current_user.role == 'student' %}
+                        <a href="{{ url_for('student_dashboard') }}" class="nav-item {% if request.endpoint == 'student_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="{{ url_for('student_attendance') }}" class="nav-item {% if request.endpoint == 'student_attendance' %}active{% endif %}">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>My Attendance</span>
+                        </a>
+                        <a href="{{ url_for('student_announcements') }}" class="nav-item {% if request.endpoint == 'student_announcements' %}active{% endif %}">
+                            <i class="fas fa-bullhorn"></i>
+                            <span>Announcements</span>
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </nav>
+            
+            <!-- Footer - This will always stay at bottom -->
+            {% if current_user.is_authenticated %}
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        {{ current_user.full_name[0] }}
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ current_user.full_name }}</div>
+                        <div class="user-role">{{ current_user.role|title }}</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+            {% endif %}
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                    <p>{% block page_subtitle %}Welcome back! Here's what's happening today.{% endblock %}</p>
+                </div>
+                
+                <div class="top-bar-actions">
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    
+                    <div class="notification-badge" onclick="showNotifications()">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge" id="notificationCount">0</span>
+                    </div>
+                    
+                    <div class="date-time">
+                        <i class="far fa-calendar-alt"></i>
+                        <span id="currentDateTime"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            <div class="flash-messages">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div class="modal" id="notificationsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Notifications</h3>
+                <button class="modal-close" onclick="hideNotifications()">&times;</button>
+            </div>
+            <div class="modal-body" id="notificationsList">
+                <div class="text-center py-4">
+                    <i class="fas fa-bell fa-3x mb-3" style="color: var(--text-muted);"></i>
+                    <p style="color: var(--text-muted);">No notifications</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+        // Update current date and time
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+
+        // Toggle sidebar
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            document.getElementById('mainContent').classList.toggle('expanded');
+        }
+
+        // Toggle theme - now with localStorage persistence
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            // Save to localStorage
+            localStorage.setItem('theme', newTheme);
+            
+            // Apply theme
+            html.setAttribute('data-theme', newTheme);
+            
+            // Update icon
+            const icon = document.querySelector('.theme-toggle i');
+            icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+
+        // Set initial theme icon based on current theme
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        });
+
+        // Notifications
+        function showNotifications() {
+            document.getElementById('notificationsModal').classList.add('active');
+            loadNotifications();
+        }
+
+        function hideNotifications() {
+            document.getElementById('notificationsModal').classList.remove('active');
+        }
+
+        function loadNotifications() {
+            fetch('/api/notifications')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('notificationsList');
+                    if (data.notifications && data.notifications.length > 0) {
+                        let html = '';
+                        data.notifications.forEach(notif => {
+                            html += `
+                                <div class="notification-item">
+                                    <div class="notification-time">${new Date(notif.timestamp).toLocaleString()}</div>
+                                    <div class="notification-title">${notif.title}</div>
+                                    <div class="notification-message">${notif.message}</div>
+                                </div>
+                            `;
+                        });
+                        list.innerHTML = html;
+                        document.getElementById('notificationCount').textContent = data.notifications.length;
+                    }
+                });
+        }
+
+        // Check for new notifications every minute
+        setInterval(loadNotifications, 60000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html> #}
+
+
+<!-- templates/base.html - Updated with removed navigation items -->
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Attendance Management System{% endblock %}</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.bootstrap5.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+        
+        .sidebar-footer {
+            flex-shrink: 0;
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-card);
+        }
+        
+        .sidebar.collapsed .sidebar-nav {
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            margin-left: 280px;
+            transition: var(--transition);
+            min-height: 100vh;
+        }
+        
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+        
+        .notification-badge {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .notification-badge .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.6rem;
+            padding: 2px 5px;
+            border-radius: 10px;
+        }
+        
+        .nav-item i {
+            width: 24px;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+    
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-wrapper">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-face-smile"></i>
+                    <span>Face<span>Attendance</span></span>
+                </div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        
+                        <div class="nav-divider">STUDENTS</div>
+                        
+                        <a href="{{ url_for('student_list') }}" class="nav-item {% if request.endpoint == 'student_list' %}active{% endif %}">
+                            <i class="fas fa-users"></i>
+                            <span>All Students</span>
+                        </a>
+                        <a href="{{ url_for('register_student') }}" class="nav-item {% if request.endpoint == 'register_student' %}active{% endif %}">
+                            <i class="fas fa-user-plus"></i>
+                            <span>Register New</span>
+                        </a>
+                        
+                        {#<div class="nav-divider">ATTENDANCE</div>
+                        
+                        <a href="{{ url_for('attendance_session') }}" class="nav-item {% if request.endpoint == 'attendance_session' %}active{% endif %}">
+                            <i class="fas fa-clock"></i>
+                            <span>Create Session</span>
+                        </a>
+                        <a href="{{ url_for('simple_attendance') }}" class="nav-item {% if request.endpoint == 'simple_attendance' %}active{% endif %}">
+                            <i class="fas fa-camera-retro"></i>
+                            <span>Take Attendance</span>
+                        </a> #}
+                        
+                        <div class="nav-divider">MONITORING</div>
+                        
+                        <a href="{{ url_for('live_monitoring') }}" class="nav-item {% if request.endpoint == 'live_monitoring' %}active{% endif %}">
+                            <i class="fas fa-video"></i>
+                            <span>Live Cameras</span>
+                        </a>
+                        
+                        <div class="nav-divider">ANALYTICS & REPORTS</div>
+                        
+                        <a href="{{ url_for('analytics') }}" class="nav-item {% if request.endpoint == 'analytics' %}active{% endif %}">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Analytics Dashboard</span>
+                        </a>
+                        <a href="{{ url_for('low_attendance_page') }}" class="nav-item">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Low Attendance</span>
+                        </a>
+                        
+                        <div class="nav-divider">COMMUNICATION</div>
+                        
+                        <a href="{{ url_for('notifications_page') }}" class="nav-item">
+                            <i class="fas fa-bell"></i>
+                            <span>Notifications</span>
+                        </a>
+                        
+                        <div class="nav-divider">SYSTEM</div>
+                        
+                        <a href="{{ url_for('settings') }}" class="nav-item {% if request.endpoint == 'settings' %}active{% endif %}">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </a>
+                        
+                    {% elif current_user.role == 'student' %}
+                        <a href="{{ url_for('student_dashboard') }}" class="nav-item {% if request.endpoint == 'student_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="{{ url_for('student_attendance') }}" class="nav-item {% if request.endpoint == 'student_attendance' %}active{% endif %}">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>My Attendance</span>
+                        </a>
+                        <a href="{{ url_for('student_notifications') }}" class="nav-item">
+                            <i class="fas fa-bell"></i>
+                            <span>Notifications</span>
+                        </a>
+                        <a href="{{ url_for('student_announcements') }}" class="nav-item {% if request.endpoint == 'student_announcements' %}active{% endif %}">
+                            <i class="fas fa-bullhorn"></i>
+                            <span>Announcements</span>
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </nav>
+            
+            {% if current_user.is_authenticated %}
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        {{ current_user.full_name[0] }}
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">{{ current_user.full_name }}</div>
+                        <div class="user-role">{{ current_user.role|title }}</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+            {% endif %}
+        </aside>
+
+        <main class="main-content" id="mainContent">
+            <div class="top-bar">
+                <div class="page-title">
+                    <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                    <p>{% block page_subtitle %}Welcome back! Here's what's happening today.{% endblock %}</p>
+                </div>
+                
+                <div class="top-bar-actions">
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    
+                    <div class="notification-badge" onclick="showNotifications()">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge" id="notificationCount">0</span>
+                    </div>
+                    
+                    <div class="date-time">
+                        <i class="far fa-calendar-alt"></i>
+                        <span id="currentDateTime"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flash-messages">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <div class="modal" id="notificationsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Notifications</h3>
+                <button class="modal-close" onclick="hideNotifications()">&times;</button>
+            </div>
+            <div class="modal-body" id="notificationsList">
+                <div class="text-center py-4">
+                    <i class="fas fa-bell fa-3x mb-3" style="color: var(--text-muted);"></i>
+                    <p style="color: var(--text-muted);">No notifications</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment/min/moment.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            document.getElementById('mainContent').classList.toggle('expanded');
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            html.setAttribute('data-theme', newTheme);
+            const icon = document.querySelector('.theme-toggle i');
+            icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+            loadNotifications();
+        });
+
+        function showNotifications() {
+            document.getElementById('notificationsModal').classList.add('active');
+            loadNotifications();
+        }
+
+        function hideNotifications() {
+            document.getElementById('notificationsModal').classList.remove('active');
+        }
+
+        function loadNotifications() {
+            fetch('/api/notifications')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('notificationsList');
+                    if (data.notifications && data.notifications.length > 0) {
+                        let html = '';
+                        data.notifications.forEach(notif => {
+                            html += `
+                                <div class="notification-item">
+                                    <div class="notification-time">${new Date(notif.timestamp).toLocaleString()}</div>
+                                    <div class="notification-title">${notif.title}</div>
+                                    <div class="notification-message">${notif.message}</div>
+                                </div>
+                            `;
+                        });
+                        list.innerHTML = html;
+                        document.getElementById('notificationCount').textContent = data.notifications.length;
+                    } else {
+                        list.innerHTML = '<div class="text-center py-4">No new notifications</div>';
+                    }
+                });
+        }
+
+        setInterval(loadNotifications, 60000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

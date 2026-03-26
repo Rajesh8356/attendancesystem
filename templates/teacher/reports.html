@@ -1,0 +1,202 @@
+{% extends "base_teacher.html" %}
+
+{% block title %}Attendance Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-file-alt me-2"></i>Attendance Reports</h2>
+            <p class="text-muted">Generate and export attendance reports</p>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-filter me-2"></i>Filter Reports</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Subject</label>
+                            <select class="form-control" name="subject_id">
+                                <option value="">All Subjects</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.subject_id }}" {% if selected_subject == subject.subject_id %}selected{% endif %}>
+                                    {{ subject.subject.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Class</label>
+                            <select class="form-control" name="class_id">
+                                <option value="">All Classes</option>
+                                {% for class in classes %}
+                                <option value="{{ class.id }}" {% if selected_class == class.id %}selected{% endif %}>
+                                    {{ class.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Apply Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Total Students</h5>
+                    <h2>{{ total_students }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Present Students</h5>
+                    <h2>{{ present_students }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5>Attendance Rate</h5>
+                    <h2>{% if total_students > 0 %}{{ ((present_students / total_students) * 100)|round(1) }}%{% else %}0%{% endif %}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-download me-2"></i>Export Options</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-3">
+                        <a href="{{ url_for('teacher_reports', start_date=start_date, end_date=end_date, subject_id=selected_subject, class_id=selected_class, format='csv') }}" class="btn btn-success">
+                            <i class="fas fa-file-csv"></i> Export as CSV
+                        </a>
+                        <a href="{{ url_for('teacher_reports', start_date=start_date, end_date=end_date, subject_id=selected_subject, class_id=selected_class, format='excel') }}" class="btn btn-primary">
+                            <i class="fas fa-file-excel"></i> Export as Excel
+                        </a>
+                        <button class="btn btn-danger" onclick="window.print()">
+                            <i class="fas fa-print"></i> Print Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-table me-2"></i>Attendance Records</h5>
+                    <div class="text-muted small">{{ start_date }} to {{ end_date }}</div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="reportTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Student Name</th>
+                                    <th>Admission No</th>
+                                    <th>Subject</th>
+                                    <th>Class</th>
+                                    <th>Status</th>
+                                    <th>Duration</th>
+                                    <th>Confidence</th>
+                                </thead>
+                                <tbody>
+                                    {% for record in report_data %}
+                                    <tr>
+                                        <td>{{ record.Date }}</td>
+                                        <td><strong>{{ record['Student Name'] }}</strong></td>
+                                        <td>{{ record['Admission No'] }}</td>
+                                        <td>{{ record.Subject }}</td>
+                                        <td>{{ record.Class }}</td>
+                                        <td>
+                                            {% if record.Status == 'PRESENT' %}
+                                                <span class="badge bg-success">PRESENT</span>
+                                            {% elif record.Status == 'LATE' %}
+                                                <span class="badge bg-warning">LATE</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">ABSENT</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ record.Duration }}</td>
+                                        <td>{{ record.Confidence }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <i class="fas fa-calendar-times fa-3x mb-3 text-muted"></i>
+                                            <p>No attendance records found for the selected period</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer with Institute Name -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="text-center text-muted small">
+                <hr>
+                <p>Generated by {{ institute_name }} Attendance System<br>
+                Report Period: {{ start_date }} to {{ end_date }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add print styles
+@media print {
+    .sidebar, .top-bar, .card-header .btn, .card-footer, .btn {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+</script>
+{% endblock %}

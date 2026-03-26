@@ -1,0 +1,189 @@
+{% extends "base_teacher.html" %}
+
+{% block title %}Create Attendance Session{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-plus-circle me-2"></i>Create Attendance Session</h2>
+            <p class="text-muted">Schedule a new attendance session for your class</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock me-2"></i>Session Details</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="sessionForm">
+                        <div class="form-group mb-3">
+                            <label class="form-label">Session Name</label>
+                            <input type="text" class="form-control" name="name" required 
+                                   placeholder="e.g., Mathematics - Period 1">
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Select Subject</label>
+                            <select class="form-control" name="subject_id" required>
+                                <option value="">-- Select Subject --</option>
+                                {% for assignment in teacher.teacher_assignments %}
+                                <option value="{{ assignment.subject_id }}">
+                                    {{ assignment.subject.name }} - {{ assignment.assigned_class.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Start Time</label>
+                                <input type="time" class="form-control" name="start_time" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">End Time</label>
+                                <input type="time" class="form-control" name="end_time" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Repeat Option</label>
+                            <select class="form-control" name="repeat_type" id="repeatType" onchange="toggleRepeatOptions()">
+                                <option value="once">Once (No Repeat)</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                            </select>
+                        </div>
+                        
+                        <div id="weeklyOptions" style="display: none;">
+                            <div class="form-group mb-3">
+                                <label class="form-label">Repeat Days</label>
+                                <div class="row">
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="0" id="mon">
+                                            <label class="form-check-label" for="mon">Monday</label>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="1" id="tue">
+                                            <label class="form-check-label" for="tue">Tuesday</label>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="2" id="wed">
+                                            <label class="form-check-label" for="wed">Wednesday</label>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="3" id="thu">
+                                            <label class="form-check-label" for="thu">Thursday</label>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="4" id="fri">
+                                            <label class="form-check-label" for="fri">Friday</label>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="5" id="sat">
+                                            <label class="form-check-label" for="sat">Saturday</label>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="repeat_days" value="6" id="sun">
+                                            <label class="form-check-label" for="sun">Sunday</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label class="form-label">Repeat Until</label>
+                                <input type="date" class="form-control" name="repeat_until">
+                                <small class="text-muted">Leave empty for indefinite</small>
+                            </div>
+                        </div>
+                        
+                        <div id="dailyOptions" style="display: none;">
+                            <div class="form-group mb-3">
+                                <label class="form-label">Repeat Until</label>
+                                <input type="date" class="form-control" name="repeat_until">
+                                <small class="text-muted">Leave empty for indefinite</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Select Camera</label>
+                            <select class="form-control" name="camera_id">
+                                <option value="">-- Auto Select Camera --</option>
+                                {% for camera in cameras %}
+                                <option value="{{ camera.id }}">{{ camera.name }} ({{ camera.ip_address }})</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Camera will automatically start at session time</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Detection Line Position</label>
+                            <input type="range" class="form-range" name="line_position" min="0" max="1" step="0.01" value="0.5" oninput="updateLineValue(this.value)">
+                            <div class="text-center">Line: <span id="lineValue">50</span>%</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Create Session
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle me-2"></i>Session Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>How it works:</strong>
+                        <ul class="mt-2 mb-0">
+                            <li>Students will be marked present when they cross the detection line</li>
+                            <li>Attendance is automatically recorded during session hours</li>
+                            <li>Absent students will receive SMS notifications</li>
+                            <li>Session will repeat based on your selection</li>
+                            <li>Duration is automatically calculated from check-in/check-out times</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-clock"></i>
+                        <strong>Note:</strong> The camera will automatically start at the session time and stop at the end time.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleRepeatOptions() {
+        const repeatType = document.getElementById('repeatType').value;
+        document.getElementById('weeklyOptions').style.display = repeatType === 'weekly' ? 'block' : 'none';
+        document.getElementById('dailyOptions').style.display = repeatType === 'daily' ? 'block' : 'none';
+    }
+    
+    function updateLineValue(value) {
+        document.getElementById('lineValue').textContent = Math.round(value * 100);
+    }
+    
+    toggleRepeatOptions();
+</script>
+{% endblock %}

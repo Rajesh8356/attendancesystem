@@ -1,0 +1,506 @@
+<!-- templates/admin/notifications.html -->
+{% extends "base.html" %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notifications-container {
+        padding: 20px;
+    }
+    
+    .create-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 25px;
+        margin-bottom: 30px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .notification-list {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+    
+    .notification-item {
+        padding: 20px;
+        border-bottom: 1px solid var(--border-color);
+        transition: all 0.3s;
+    }
+    
+    .notification-item:hover {
+        background: var(--bg-primary);
+    }
+    
+    .notification-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .notification-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .notification-time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    
+    .notification-target {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        margin-left: 10px;
+    }
+    
+    .target-all {
+        background: rgba(6, 214, 160, 0.2);
+        color: #06d6a0;
+    }
+    
+    .target-students {
+        background: rgba(67, 97, 238, 0.2);
+        color: #4361ee;
+    }
+    
+    .target-parents {
+        background: rgba(255, 209, 102, 0.2);
+        color: #ffd166;
+    }
+    
+    .target-teachers {
+        background: rgba(239, 71, 111, 0.2);
+        color: #ef476f;
+    }
+    
+    .notification-message {
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+    
+    .btn-create {
+        background: linear-gradient(135deg, #4361ee, #3a56d4);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-create:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+    }
+    
+    .target-selector {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .target-option {
+        padding: 10px 20px;
+        border: 2px solid var(--border-color);
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .target-option:hover {
+        border-color: var(--primary);
+    }
+    
+    .target-option.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+    
+    .class-select {
+        display: none;
+        margin-top: 15px;
+    }
+    
+    .class-select.show {
+        display: block;
+    }
+    
+    .char-count {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-align: right;
+        margin-top: 5px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notifications-container">
+    <h2><i class="fas fa-bell me-2"></i>Notifications</h2>
+    <p class="text-muted">Create and manage announcements for students, parents, and teachers</p>
+    
+    <!-- Create Notification Card -->
+    <div class="create-card">
+        <h5 class="mb-3"><i class="fas fa-plus-circle me-2"></i>Create New Announcement</h5>
+        
+        <div class="target-selector">
+            <div class="target-option active" data-target="all">
+                <i class="fas fa-globe"></i> All Users
+            </div>
+            <div class="target-option" data-target="students">
+                <i class="fas fa-user-graduate"></i> Students Only
+            </div>
+            <div class="target-option" data-target="parents">
+                <i class="fas fa-users"></i> Parents Only
+            </div>
+            <div class="target-option" data-target="teachers">
+                <i class="fas fa-chalkboard-user"></i> Teachers Only
+            </div>
+            <div class="target-option" data-target="class">
+                <i class="fas fa-school"></i> Specific Class
+            </div>
+        </div>
+        
+        <div class="class-select" id="classSelect">
+            <label>Select Class</label>
+            <select id="targetClass" class="form-control">
+                <option value="">-- Select Class --</option>
+                {% for class in classes %}
+                <option value="{{ class.id }}">{{ class.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group mb-3">
+            <label>Title</label>
+            <input type="text" id="announcementTitle" class="form-control" placeholder="Enter announcement title">
+        </div>
+        
+        <div class="form-group mb-3">
+            <label>Message</label>
+            <textarea id="announcementMessage" class="form-control" rows="4" placeholder="Enter announcement message..."></textarea>
+            <div class="char-count"><span id="charCount">0</span> characters</div>
+        </div>
+        
+        <div class="form-group mb-3">
+            <label>Expiry Date (Optional)</label>
+            <input type="date" id="expiryDate" class="form-control">
+        </div>
+        
+        <div class="form-check mb-3">
+            <input type="checkbox" id="isPinned" class="form-check-input">
+            <label class="form-check-label">Pin this announcement (appears at top)</label>
+        </div>
+        
+        <button class="btn-create" id="createAnnouncementBtn">
+            <i class="fas fa-paper-plane"></i> Publish Announcement
+        </button>
+    </div>
+    
+    <!-- Notifications List -->
+    <div class="notification-list">
+        <div class="p-3 border-bottom bg-primary bg-opacity-10">
+            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Previous Announcements</h5>
+        </div>
+        <div id="notificationsList">
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Loading announcements...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let socket = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSocket();
+    loadAnnouncements();
+    setupEventListeners();
+    
+    document.getElementById('announcementMessage').addEventListener('input', function() {
+        document.getElementById('charCount').textContent = this.value.length;
+    });
+});
+
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('new_announcement', function(data) {
+        console.log('New announcement received:', data);
+        addAnnouncementToList(data);
+        showNotification('New announcement published!', 'success');
+    });
+}
+
+function setupEventListeners() {
+    document.querySelectorAll('.target-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.target-option').forEach(opt => opt.classList.remove('active'));
+            this.classList.add('active');
+            
+            const target = this.dataset.target;
+            const classSelect = document.getElementById('classSelect');
+            
+            if (target === 'class') {
+                classSelect.classList.add('show');
+            } else {
+                classSelect.classList.remove('show');
+            }
+        });
+    });
+    
+    document.getElementById('createAnnouncementBtn').addEventListener('click', createAnnouncement);
+}
+
+async function createAnnouncement() {
+    const activeTarget = document.querySelector('.target-option.active');
+    const target = activeTarget.dataset.target;
+    const title = document.getElementById('announcementTitle').value.trim();
+    const content = document.getElementById('announcementMessage').value.trim();
+    const expires = document.getElementById('expiryDate').value;
+    const isPinned = document.getElementById('isPinned').checked;
+    
+    if (!title) {
+        showNotification('Please enter a title', 'error');
+        return;
+    }
+    
+    if (!content) {
+        showNotification('Please enter a message', 'error');
+        return;
+    }
+    
+    const data = {
+        title: title,
+        content: content,
+        target: target,
+        is_pinned: isPinned
+    };
+    
+    if (target === 'class') {
+        const classId = document.getElementById('targetClass').value;
+        if (!classId) {
+            showNotification('Please select a class', 'error');
+            return;
+        }
+        data.class_id = classId;
+    }
+    
+    if (expires) {
+        data.expires = expires;
+    }
+    
+    const btn = document.getElementById('createAnnouncementBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/announcements/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Announcement published successfully!', 'success');
+            document.getElementById('announcementTitle').value = '';
+            document.getElementById('announcementMessage').value = '';
+            document.getElementById('expiryDate').value = '';
+            document.getElementById('isPinned').checked = false;
+            document.getElementById('charCount').textContent = '0';
+            loadAnnouncements();
+        } else {
+            showNotification('Error: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function loadAnnouncements() {
+    try {
+        const response = await fetch('/api/announcements');
+        const data = await response.json();
+        
+        if (data.success) {
+            renderAnnouncements(data.announcements);
+        }
+    } catch (error) {
+        console.error('Error loading announcements:', error);
+    }
+}
+
+function renderAnnouncements(announcements) {
+    const container = document.getElementById('notificationsList');
+    
+    if (!announcements || announcements.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-bell-slash"></i>
+                <h5>No announcements yet</h5>
+                <p class="text-muted">Create your first announcement above</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = announcements.map(announcement => `
+        <div class="notification-item ${announcement.is_pinned ? 'pinned' : ''}">
+            <div class="notification-header">
+                <div>
+                    <span class="notification-title">${escapeHtml(announcement.title)}</span>
+                    <span class="notification-target target-${announcement.target_role}">
+                        <i class="fas ${getTargetIcon(announcement.target_role)}"></i>
+                        ${getTargetText(announcement.target_role)}
+                    </span>
+                    ${announcement.is_pinned ? '<span class="ms-2"><i class="fas fa-thumbtack text-warning"></i></span>' : ''}
+                </div>
+                <div class="notification-time">
+                    <i class="far fa-clock"></i> ${new Date(announcement.created_at).toLocaleString()}
+                </div>
+            </div>
+            <div class="notification-message">
+                ${escapeHtml(announcement.content)}
+            </div>
+            <div class="mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-user"></i> By: ${escapeHtml(announcement.created_by)}
+                </small>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addAnnouncementToList(announcement) {
+    const container = document.getElementById('notificationsList');
+    
+    if (container.innerHTML.includes('No announcements')) {
+        container.innerHTML = '';
+    }
+    
+    const announcementHtml = `
+        <div class="notification-item ${announcement.is_pinned ? 'pinned' : ''}">
+            <div class="notification-header">
+                <div>
+                    <span class="notification-title">${escapeHtml(announcement.title)}</span>
+                    <span class="notification-target target-${announcement.target_role}">
+                        <i class="fas ${getTargetIcon(announcement.target_role)}"></i>
+                        ${getTargetText(announcement.target_role)}
+                    </span>
+                    ${announcement.is_pinned ? '<span class="ms-2"><i class="fas fa-thumbtack text-warning"></i></span>' : ''}
+                </div>
+                <div class="notification-time">
+                    <i class="far fa-clock"></i> Just now
+                </div>
+            </div>
+            <div class="notification-message">
+                ${escapeHtml(announcement.content)}
+            </div>
+            <div class="mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-user"></i> By: You
+                </small>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('afterbegin', announcementHtml);
+}
+
+function getTargetIcon(target) {
+    switch(target) {
+        case 'all': return 'fa-globe';
+        case 'students': return 'fa-user-graduate';
+        case 'parents': return 'fa-users';
+        case 'teachers': return 'fa-chalkboard-user';
+        default: return 'fa-bell';
+    }
+}
+
+function getTargetText(target) {
+    switch(target) {
+        case 'all': return 'All Users';
+        case 'students': return 'Students';
+        case 'parents': return 'Parents';
+        case 'teachers': return 'Teachers';
+        default: return target;
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showNotification(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type === 'error' ? 'error' : ''}`;
+    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i> ${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+
+<style>
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    border-left: 4px solid var(--success);
+}
+
+.toast-notification.error {
+    border-left-color: var(--danger);
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+</style>
+{% endblock %}

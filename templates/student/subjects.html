@@ -1,0 +1,89 @@
+{% extends "base_student.html" %}
+
+{% block title %}My Subjects{% endblock %}
+
+{% block page_title %}My Subjects & Teachers{% endblock %}
+{% block page_subtitle %}View your subject schedule and teacher assignments{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-book-open me-2"></i>Subjects & Teachers</h5>
+                </div>
+                <div class="card-body">
+                    {% if subjects %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Subject Name</th>
+                                        <th>Subject Code</th>
+                                        <th>Teacher Name</th>
+                                        <th>Teacher ID</th>
+                                        <th>Upcoming Sessions</th>
+                                        <th>Attendance</th>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in subjects %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ item.subject.name }}</strong><br>
+                                                <small class="text-muted">{{ item.subject.description|truncate(50) }}</small>
+                                            </td>
+                                            <td>{{ item.subject.code }}</td>
+                                            <td>
+                                                <i class="fas fa-chalkboard-user text-primary me-1"></i>
+                                                {{ item.teacher }}
+                                                {% if item.teacher_id %}
+                                                    <br><small class="text-muted">ID: {{ item.teacher_id }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ item.teacher_id }}</td>
+                                            <td>
+                                                {% if item.sessions %}
+                                                    <ul class="list-unstyled mb-0">
+                                                        {% for session in item.sessions[:3] %}
+                                                        <li class="small">
+                                                            <i class="far fa-clock"></i> 
+                                                            {{ session.start_time.strftime('%H:%M') }} - {{ session.end_time.strftime('%H:%M') }}
+                                                            {% if session.repeat_type == 'weekly' %}
+                                                                <span class="badge bg-info">Weekly</span>
+                                                            {% elif session.repeat_type == 'daily' %}
+                                                                <span class="badge bg-info">Daily</span>
+                                                            {% endif %}
+                                                        </li>
+                                                        {% endfor %}
+                                                        {% if item.sessions|length > 3 %}
+                                                            <li class="small text-muted">+{{ item.sessions|length - 3 }} more</li>
+                                                        {% endif %}
+                                                    </ul>
+                                                {% else %}
+                                                    <span class="text-muted">No sessions scheduled</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('student_subject_attendance', subject_id=item.subject.id) }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-chart-line"></i> View Attendance
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-book-open fa-4x mb-3 text-muted"></i>
+                            <h5>No Subjects Assigned</h5>
+                            <p class="text-muted">Your subjects will appear here once assigned by the administration.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
