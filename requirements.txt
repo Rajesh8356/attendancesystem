@@ -1,3 +1,7 @@
+cd attendancesystem
+
+# Create the corrected requirements.txt
+cat > requirements.txt << 'EOF'
 # Core Flask - Use older version compatible with Dash
 Flask==2.2.5
 Flask-Login==0.6.2
@@ -73,3 +77,4 @@ WeasyPrint==60.1
 # QR Code (optional)
 qrcode==7.4.2
 pyzbar==0.1.9
+EOF
