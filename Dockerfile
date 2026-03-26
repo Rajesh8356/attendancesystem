@@ -5,13 +5,22 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies required for dlib and face_recognition
+# Update and install newer CMake from backports
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CMake 3.22 (newer version required for dlib)
+RUN wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-x86_64.tar.gz" | tar --strip-components=1 -xz -C /usr/local
+
+# Install remaining system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
-    cmake \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -19,13 +28,12 @@ RUN apt-get update && \
     libxrender1 \
     libgomp1 \
     libpq-dev \
-    wget \
     curl \
     libopenblas-dev \
     liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
