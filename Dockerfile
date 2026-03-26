@@ -5,22 +5,11 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Update and install newer CMake from backports
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    wget \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install CMake 3.22 (newer version required for dlib)
-RUN wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-x86_64.tar.gz" | tar --strip-components=1 -xz -C /usr/local
-
-# Install remaining system dependencies
+# Install system dependencies (minimal required)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     g++ \
-    make \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -28,15 +17,23 @@ RUN apt-get update && \
     libxrender1 \
     libgomp1 \
     libpq-dev \
-    curl \
     libopenblas-dev \
     liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Create a modified requirements.txt without dlib
 COPY requirements.txt .
+RUN grep -v "^dlib==" requirements.txt > requirements-no-dlib.txt
+
+# Install all Python packages except dlib
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements-no-dlib.txt
+
+# Install pre-compiled dlib wheel (Python 3.9, Linux x86_64)
+RUN pip install --no-cache-dir https://github.com/z-mahmud22/Dlib_Wheels/raw/main/dlib-19.24.2-cp39-cp39-linux_x86_64.whl
+
+# Install face_recognition (depends on dlib)
+RUN pip install --no-cache-dir face-recognition==1.3.0
 
 # Copy application code
 COPY . .
