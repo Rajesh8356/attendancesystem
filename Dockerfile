@@ -1,15 +1,14 @@
-FROM python:3.9-slim
+FROM python:3.9
 
 ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# Install system dependencies
+# Install cmake and other dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
+    cmake \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -17,13 +16,10 @@ RUN apt-get update && \
     libxrender1 \
     libgomp1 \
     libpq-dev \
-    cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Try alternative dlib wheel sources
-RUN pip install --no-cache-dir https://github.com/jeffreyde/dlib-wheels/raw/main/dlib-19.24.2-cp39-cp39-linux_x86_64.whl || \
-    pip install --no-cache-dir dlib-bin || \
-    pip install --no-cache-dir dlib==19.24.2
+# Install dlib (will compile but with proper CMake)
+RUN pip install --no-cache-dir dlib==19.24.2
 
 # Install face_recognition
 RUN pip install --no-cache-dir face-recognition==1.3.0
